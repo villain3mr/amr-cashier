@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   activeTab: string;
-  onTabChange: (tab: string) => void;
+  onTabChange: (tab: any) => void;
   role: 'admin' | 'shop';
   shopName: string;
 }
