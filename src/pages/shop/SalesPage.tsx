@@ -200,7 +200,7 @@ const SalesPage: React.FC = () => {
         <div className="mb-3">
           <label className="text-xs text-muted-foreground font-body mb-1 block">طريقة الدفع</label>
           <div className="flex border border-border rounded-md overflow-hidden">
-            {(['cash', 'visa', 'mixed'] as const).map(method => (
+            {(['cash', 'visa'] as const).map(method => (
               <button
                 key={method}
                 onClick={() => setPaymentMethod(method)}
