@@ -208,7 +208,7 @@ const SalesPage: React.FC = () => {
                   paymentMethod === method ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {method === 'cash' ? 'كاش' : method === 'visa' ? 'فيزا' : 'مختلط'}
+                {method === 'cash' ? 'كاش' : method === 'visa' ? 'انستاباي' : 'مختلط'}
               </button>
             ))}
           </div>
