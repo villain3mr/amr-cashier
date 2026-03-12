@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   ShoppingCart, Package, Users, FileText, Settings, LogOut,
-  LayoutDashboard, Store, Smartphone
+  LayoutDashboard, Store, Smartphone, Cog
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ interface SidebarProps {
 }
 
 const shopNavItems = [
+  { id: 'dashboard', icon: LayoutDashboard, label: 'لوحة التحكم' },
   { id: 'sales', icon: ShoppingCart, label: 'المبيعات' },
   { id: 'inventory', icon: Package, label: 'المخزون' },
   { id: 'customers', icon: Users, label: 'العملاء' },
@@ -24,6 +25,7 @@ const shopNavItems = [
 const adminNavItems = [
   { id: 'overview', icon: LayoutDashboard, label: 'نظرة عامة' },
   { id: 'shops', icon: Store, label: 'المحلات' },
+  { id: 'settings', icon: Cog, label: 'إعدادات البرنامج' },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, role, shopName }) => {
@@ -32,7 +34,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, role, shopNam
 
   return (
     <aside className="w-16 lg:w-56 h-screen bg-card border-l border-border flex flex-col shrink-0">
-      {/* Logo */}
       <div className="h-16 flex items-center justify-center lg:justify-start lg:px-4 border-b border-border">
         <Smartphone className="w-6 h-6 text-primary shrink-0" strokeWidth={1.5} />
         <span className="hidden lg:block mr-2 font-heading font-bold text-foreground text-sm truncate">
@@ -40,7 +41,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, role, shopNam
         </span>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 py-4 space-y-1 px-2">
         {navItems.map(item => {
           const isActive = activeTab === item.id;
@@ -66,7 +66,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, role, shopNam
         })}
       </nav>
 
-      {/* Logout */}
       <div className="p-2 border-t border-border">
         <button
           onClick={logout}
