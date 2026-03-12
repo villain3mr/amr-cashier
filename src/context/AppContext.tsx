@@ -48,13 +48,14 @@ export interface Invoice {
   shopId: string;
   customerId?: string;
   customerName?: string;
+  type: 'sale' | 'purchase';
   items: InvoiceItem[];
   subtotal: number;
   discount: number;
   total: number;
   paid: number;
   remaining: number;
-  paymentMethod: 'cash' | 'visa' | 'mixed';
+  paymentMethod: string;
   date: string;
   notes: string;
 }
@@ -67,6 +68,12 @@ export interface Transaction {
   amount: number;
   date: string;
   notes: string;
+}
+
+export interface AppSettings {
+  paymentMethods: { id: string; label: string; active: boolean }[];
+  currency: string;
+  appName: string;
 }
 
 type UserRole = 'admin' | 'shop';
@@ -96,14 +103,27 @@ interface AppContextType {
   deleteCustomer: (id: string) => void;
   invoices: Invoice[];
   addInvoice: (invoice: Omit<Invoice, 'id' | 'date'>) => void;
+  updateInvoice: (invoice: Invoice) => void;
+  deleteInvoice: (id: string) => void;
   transactions: Transaction[];
   addTransaction: (tx: Omit<Transaction, 'id' | 'date'>) => void;
+  settings: AppSettings;
+  updateSettings: (settings: AppSettings) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'admin123';
+
+const defaultSettings: AppSettings = {
+  paymentMethods: [
+    { id: 'cash', label: 'كاش', active: true },
+    { id: 'instapay', label: 'انستاباي', active: true },
+  ],
+  currency: 'ج.م',
+  appName: 'Amr Cashier',
+};
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -133,12 +153,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [customers, setCustomers] = useState<Customer[]>(() => loadFromStorage('amr_customers', []));
   const [invoices, setInvoices] = useState<Invoice[]>(() => loadFromStorage('amr_invoices', []));
   const [transactions, setTransactions] = useState<Transaction[]>(() => loadFromStorage('amr_transactions', []));
+  const [settings, setSettings] = useState<AppSettings>(() => loadFromStorage('amr_settings', defaultSettings));
 
   useEffect(() => { saveToStorage('amr_shops', shops); }, [shops]);
   useEffect(() => { saveToStorage('amr_products', products); }, [products]);
   useEffect(() => { saveToStorage('amr_customers', customers); }, [customers]);
   useEffect(() => { saveToStorage('amr_invoices', invoices); }, [invoices]);
   useEffect(() => { saveToStorage('amr_transactions', transactions); }, [transactions]);
+  useEffect(() => { saveToStorage('amr_settings', settings); }, [settings]);
 
   const login = useCallback((username: string, password: string, remember: boolean) => {
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
@@ -198,19 +220,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addInvoice = useCallback((invoice: Omit<Invoice, 'id' | 'date'>) => {
     const newInvoice = { ...invoice, id: generateId(), date: new Date().toISOString() };
     setInvoices(prev => [...prev, newInvoice]);
-    // Update product quantities
+    const isSale = invoice.type === 'sale';
     invoice.items.forEach(item => {
       setProducts(prev => prev.map(p =>
-        p.id === item.productId ? { ...p, quantity: p.quantity - item.quantity } : p
+        p.id === item.productId
+          ? { ...p, quantity: isSale ? p.quantity - item.quantity : p.quantity + item.quantity }
+          : p
       ));
     });
-    // Update customer balance if applicable
     if (invoice.customerId && invoice.remaining > 0) {
       setCustomers(prev => prev.map(c =>
-        c.id === invoice.customerId ? { ...c, balance: c.balance + invoice.remaining } : c
+        c.id === invoice.customerId
+          ? { ...c, balance: isSale ? c.balance + invoice.remaining : c.balance - invoice.remaining }
+          : c
       ));
     }
   }, []);
+
+  const updateInvoice = useCallback((invoice: Invoice) => {
+    setInvoices(prev => prev.map(i => i.id === invoice.id ? invoice : i));
+  }, []);
+
+  const deleteInvoice = useCallback((id: string) => {
+    const invoice = invoices.find(i => i.id === id);
+    if (invoice) {
+      const isSale = invoice.type === 'sale';
+      // Restore product quantities
+      invoice.items.forEach(item => {
+        setProducts(prev => prev.map(p =>
+          p.id === item.productId
+            ? { ...p, quantity: isSale ? p.quantity + item.quantity : p.quantity - item.quantity }
+            : p
+        ));
+      });
+      // Restore customer balance
+      if (invoice.customerId && invoice.remaining > 0) {
+        setCustomers(prev => prev.map(c =>
+          c.id === invoice.customerId
+            ? { ...c, balance: isSale ? c.balance - invoice.remaining : c.balance + invoice.remaining }
+            : c
+        ));
+      }
+    }
+    setInvoices(prev => prev.filter(i => i.id !== id));
+  }, [invoices]);
 
   const addTransaction = useCallback((tx: Omit<Transaction, 'id' | 'date'>) => {
     setTransactions(prev => [...prev, { ...tx, id: generateId(), date: new Date().toISOString() }]);
@@ -221,14 +274,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const updateSettings = useCallback((newSettings: AppSettings) => {
+    setSettings(newSettings);
+  }, []);
+
   return (
     <AppContext.Provider value={{
       auth, login, logout,
       shops, addShop, updateShop, deleteShop,
       products, addProduct, updateProduct, deleteProduct,
       customers, addCustomer, updateCustomer, deleteCustomer,
-      invoices, addInvoice,
+      invoices, addInvoice, updateInvoice, deleteInvoice,
       transactions, addTransaction,
+      settings, updateSettings,
     }}>
       {children}
     </AppContext.Provider>
