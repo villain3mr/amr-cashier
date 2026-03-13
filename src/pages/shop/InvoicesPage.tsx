@@ -17,7 +17,7 @@ const InvoicesPage: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<'all' | 'sale' | 'purchase'>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-  const printRef = useRef<HTMLDivElement>(null);
+  
 
   // Get available dates (unique dates that have invoices)
   const availableDates = useMemo(() => {
