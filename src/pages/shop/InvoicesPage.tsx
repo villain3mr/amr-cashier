@@ -80,10 +80,18 @@ const InvoicesPage: React.FC = () => {
     setDateTo(now.toISOString().split('T')[0]);
   };
 
-  // Print only the invoice detail
   const handlePrint = () => {
-    if (!printRef.current || !selected) return;
-    const printContent = printRef.current.innerHTML;
+    if (!selected) return;
+    const shopName = auth.shopName || settings.appName;
+    const itemsHtml = selected.items.map(item => `
+      <tr>
+        <td>${item.productName}</td>
+        <td class="text-center">${item.quantity}</td>
+        <td class="text-center">${item.unitPrice.toLocaleString()}</td>
+        <td class="text-left">${item.total.toLocaleString()}</td>
+      </tr>
+    `).join('');
+
     const printWindow = window.open('', '_blank', 'width=400,height=600');
     if (!printWindow) return;
     printWindow.document.write(`
@@ -94,30 +102,51 @@ const InvoicesPage: React.FC = () => {
         <title>فاتورة #${selected.id.slice(-6)}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Cairo', 'IBM Plex Sans Arabic', Arial, sans-serif; padding: 20px; font-size: 13px; color: #111; direction: rtl; }
-          .print-header { text-align: center; margin-bottom: 16px; border-bottom: 2px solid #333; padding-bottom: 12px; }
-          .print-header h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-          .print-header .invoice-type { font-size: 14px; color: #555; }
-          .print-header .invoice-num { font-size: 12px; color: #777; margin-top: 4px; }
-          .info-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
-          .info-row .label { color: #666; }
-          .info-section { margin-bottom: 12px; }
+          body { font-family: 'Cairo', 'IBM Plex Sans Arabic', Arial, sans-serif; padding: 24px; font-size: 13px; color: #111; direction: rtl; max-width: 400px; margin: 0 auto; }
+          .header { text-align: center; margin-bottom: 16px; border-bottom: 2px solid #333; padding-bottom: 12px; }
+          .header h1 { font-size: 20px; font-weight: 700; }
+          .header .sub { font-size: 13px; color: #555; margin-top: 2px; }
+          .header .num { font-size: 11px; color: #888; margin-top: 4px; }
+          .info { margin-bottom: 12px; }
+          .info-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; }
+          .info-row .lbl { color: #666; }
           table { width: 100%; border-collapse: collapse; margin: 12px 0; }
           th { background: #f5f5f5; padding: 6px 8px; text-align: right; font-size: 11px; border-bottom: 2px solid #ddd; }
           td { padding: 5px 8px; border-bottom: 1px solid #eee; font-size: 12px; }
           .text-center { text-align: center; }
           .text-left { text-align: left; }
-          .totals { border-top: 2px solid #333; padding-top: 8px; margin-top: 8px; }
-          .total-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
-          .total-row.grand { font-size: 16px; font-weight: 700; border-top: 1px solid #ddd; padding-top: 6px; margin-top: 4px; }
-          .total-row.remaining { color: #c00; }
+          .totals { border-top: 2px solid #333; padding-top: 8px; margin-top: 4px; }
+          .t-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+          .t-row.grand { font-size: 16px; font-weight: 700; border-top: 1px solid #ccc; padding-top: 6px; margin-top: 4px; }
+          .t-row.red { color: #c00; }
           .notes { margin-top: 12px; padding: 8px; background: #f9f9f9; border-radius: 4px; font-size: 11px; color: #555; }
-          .footer { text-align: center; margin-top: 20px; font-size: 10px; color: #999; border-top: 1px dashed #ccc; padding-top: 8px; }
-          @media print { body { padding: 10px; } }
+          .footer { text-align: center; margin-top: 24px; font-size: 10px; color: #aaa; border-top: 1px dashed #ccc; padding-top: 8px; }
         </style>
       </head>
       <body>
-        ${printContent}
+        <div class="header">
+          <h1>${shopName}</h1>
+          <div class="sub">فاتورة ${selected.type === 'sale' ? 'مبيعات' : 'مشتريات'}</div>
+          <div class="num">#${selected.id.slice(-6)}</div>
+        </div>
+        <div class="info">
+          <div class="info-row"><span class="lbl">التاريخ</span><span>${new Date(selected.date).toLocaleString('ar-EG')}</span></div>
+          ${selected.customerName ? `<div class="info-row"><span class="lbl">${selected.type === 'sale' ? 'المباع إليه' : 'المشترى منه'}</span><span><strong>${selected.customerName}</strong></span></div>` : ''}
+          <div class="info-row"><span class="lbl">طريقة الدفع</span><span>${selected.paymentMethod}</span></div>
+        </div>
+        <table>
+          <thead><tr><th>المنتج</th><th class="text-center">الكمية</th><th class="text-center">السعر</th><th class="text-left">الإجمالي</th></tr></thead>
+          <tbody>${itemsHtml}</tbody>
+        </table>
+        <div class="totals">
+          <div class="t-row"><span>المجموع</span><span>${selected.subtotal.toLocaleString()} ${cur}</span></div>
+          ${selected.discount > 0 ? `<div class="t-row"><span>الخصم</span><span>-${selected.discount.toLocaleString()} ${cur}</span></div>` : ''}
+          <div class="t-row grand"><span>الإجمالي</span><span>${selected.total.toLocaleString()} ${cur}</span></div>
+          <div class="t-row"><span>المدفوع</span><span>${selected.paid.toLocaleString()} ${cur}</span></div>
+          ${selected.remaining > 0 ? `<div class="t-row red"><span>المتبقي</span><span>${selected.remaining.toLocaleString()} ${cur}</span></div>` : ''}
+        </div>
+        ${selected.notes ? `<div class="notes">ملاحظات: ${selected.notes}</div>` : ''}
+        <div class="footer">شكراً لتعاملكم معنا - ${shopName}</div>
         <script>window.onload = function() { window.print(); window.close(); }<\/script>
       </body>
       </html>
