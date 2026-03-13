@@ -2,32 +2,56 @@ import React, { useMemo, useState } from 'react';
 import { useApp, Invoice } from '@/context/AppContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Printer, Trash2, Edit2, X, Check } from 'lucide-react';
+import { Search, Printer, Trash2, Edit2, X, Check, Calendar } from 'lucide-react';
 
 const InvoicesPage: React.FC = () => {
-  const { auth, invoices, updateInvoice, deleteInvoice } = useApp();
+  const { auth, invoices, updateInvoice, deleteInvoice, settings } = useApp();
   const shopInvoices = useMemo(
     () => invoices.filter(i => i.shopId === auth.shopId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [invoices, auth.shopId]
   );
 
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'sale' | 'purchase'>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
 
   const filteredInvoices = useMemo(() => {
-    if (!search) return shopInvoices;
-    const s = search.toLowerCase();
-    return shopInvoices.filter(i =>
-      i.id.includes(s) || i.customerName?.toLowerCase().includes(s)
-    );
-  }, [shopInvoices, search]);
+    let result = shopInvoices;
+    
+    if (typeFilter !== 'all') {
+      result = result.filter(i => i.type === typeFilter);
+    }
+    
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      from.setHours(0, 0, 0, 0);
+      result = result.filter(i => new Date(i.date) >= from);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      result = result.filter(i => new Date(i.date) <= to);
+    }
+    
+    if (search) {
+      const s = search.toLowerCase();
+      result = result.filter(i =>
+        i.id.includes(s) || i.customerName?.toLowerCase().includes(s) || 
+        i.items.some(item => item.productName.toLowerCase().includes(s))
+      );
+    }
+    
+    return result;
+  }, [shopInvoices, search, dateFrom, dateTo, typeFilter]);
+
+  const periodTotal = useMemo(() => filteredInvoices.reduce((sum, i) => sum + i.total, 0), [filteredInvoices]);
 
   const selected = shopInvoices.find(i => i.id === selectedInvoice);
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => { window.print(); };
 
   const handleDelete = (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذه الفاتورة؟ سيتم استعادة الكميات والأرصدة.')) {
@@ -36,9 +60,7 @@ const InvoicesPage: React.FC = () => {
     }
   };
 
-  const startEdit = (invoice: Invoice) => {
-    setEditingInvoice({ ...invoice });
-  };
+  const startEdit = (invoice: Invoice) => { setEditingInvoice({ ...invoice }); };
 
   const saveEdit = () => {
     if (editingInvoice) {
@@ -47,13 +69,47 @@ const InvoicesPage: React.FC = () => {
     }
   };
 
+  const cur = settings.currency;
+
   return (
     <div className="h-full flex">
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-border space-y-3">
+          {/* Search */}
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في الفواتير..." className="pr-10 bg-card border-border h-10 font-body" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث بالاسم أو المنتج..." className="pr-10 bg-card border-border h-10 font-body" />
+          </div>
+          
+          {/* Filters row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Type filter */}
+            <div className="flex border border-border rounded-md overflow-hidden">
+              {([['all', 'الكل'], ['sale', 'بيع'], ['purchase', 'شراء']] as const).map(([val, label]) => (
+                <button key={val} onClick={() => setTypeFilter(val as any)}
+                  className={`px-3 py-1.5 text-xs font-body transition-colors ${typeFilter === val ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:text-foreground'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            
+            {/* Date filters */}
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
+              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="bg-card border-border h-8 font-body text-xs w-32" />
+              <span className="text-xs text-muted-foreground">إلى</span>
+              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="bg-card border-border h-8 font-body text-xs w-32" />
+            </div>
+            
+            {(dateFrom || dateTo || typeFilter !== 'all') && (
+              <button onClick={() => { setDateFrom(''); setDateTo(''); setTypeFilter('all'); }} className="text-xs text-destructive hover:underline font-body">مسح الفلاتر</button>
+            )}
+          </div>
+          
+          {/* Period summary */}
+          <div className="flex items-center justify-between text-xs font-body text-muted-foreground">
+            <span>{filteredInvoices.length} فاتورة</span>
+            <span>الإجمالي: <span className="text-primary font-medium">{periodTotal.toLocaleString()} {cur}</span></span>
           </div>
         </div>
 
@@ -77,12 +133,12 @@ const InvoicesPage: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground font-body">
-                        {new Date(invoice.date).toLocaleDateString('ar-EG')} - {invoice.customerName || 'بدون عميل'}
+                        {new Date(invoice.date).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} - {invoice.customerName || 'بدون عميل'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-left">
-                        <p className="text-primary font-body font-medium">{invoice.total.toLocaleString()} ج.م</p>
+                        <p className="text-primary font-body font-medium">{invoice.total.toLocaleString()} {cur}</p>
                         <p className="text-xs text-muted-foreground font-body">{invoice.items.length} منتج</p>
                       </div>
                       <button onClick={e => { e.stopPropagation(); handleDelete(invoice.id); }} className="p-1.5 text-muted-foreground hover:text-destructive">
@@ -105,29 +161,20 @@ const InvoicesPage: React.FC = () => {
             <div className="flex items-center gap-1">
               {editingInvoice ? (
                 <>
-                  <button onClick={saveEdit} className="p-2 text-primary hover:text-primary/80">
-                    <Check className="w-5 h-5" strokeWidth={1.5} />
-                  </button>
-                  <button onClick={() => setEditingInvoice(null)} className="p-2 text-muted-foreground hover:text-foreground">
-                    <X className="w-5 h-5" strokeWidth={1.5} />
-                  </button>
+                  <button onClick={saveEdit} className="p-2 text-primary hover:text-primary/80"><Check className="w-5 h-5" strokeWidth={1.5} /></button>
+                  <button onClick={() => setEditingInvoice(null)} className="p-2 text-muted-foreground hover:text-foreground"><X className="w-5 h-5" strokeWidth={1.5} /></button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => startEdit(selected)} className="p-2 text-muted-foreground hover:text-foreground">
-                    <Edit2 className="w-4 h-4" strokeWidth={1.5} />
-                  </button>
-                  <button onClick={handlePrint} className="p-2 text-primary hover:text-primary/80">
-                    <Printer className="w-5 h-5" strokeWidth={1.5} />
-                  </button>
+                  <button onClick={() => startEdit(selected)} className="p-2 text-muted-foreground hover:text-foreground"><Edit2 className="w-4 h-4" strokeWidth={1.5} /></button>
+                  <button onClick={handlePrint} className="p-2 text-primary hover:text-primary/80"><Printer className="w-5 h-5" strokeWidth={1.5} /></button>
                 </>
               )}
             </div>
           </div>
 
-          {/* Print header */}
           <div className="hidden print:block text-center mb-4">
-            <h1 className="font-heading text-lg font-bold">Amr Cashier</h1>
+            <h1 className="font-heading text-lg font-bold">{settings.appName}</h1>
             <p className="text-sm">فاتورة {selected.type === 'sale' ? 'مبيعات' : 'مشتريات'}</p>
           </div>
 
@@ -158,40 +205,16 @@ const InvoicesPage: React.FC = () => {
           ) : (
             <>
               <div className="space-y-3 text-sm font-body">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">رقم الفاتورة</span>
-                  <span className="text-foreground">#{selected.id.slice(-6)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">النوع</span>
-                  <span className="text-foreground">{selected.type === 'sale' ? 'بيع' : 'شراء من عميل'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">التاريخ</span>
-                  <span className="text-foreground">{new Date(selected.date).toLocaleString('ar-EG')}</span>
-                </div>
-                {selected.customerName && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">العميل</span>
-                    <span className="text-foreground">{selected.customerName}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">طريقة الدفع</span>
-                  <span className="text-foreground">{selected.paymentMethod}</span>
-                </div>
+                <div className="flex justify-between"><span className="text-muted-foreground">رقم الفاتورة</span><span className="text-foreground">#{selected.id.slice(-6)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">النوع</span><span className="text-foreground">{selected.type === 'sale' ? 'بيع' : 'شراء من عميل'}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">التاريخ</span><span className="text-foreground">{new Date(selected.date).toLocaleString('ar-EG')}</span></div>
+                {selected.customerName && <div className="flex justify-between"><span className="text-muted-foreground">العميل</span><span className="text-foreground">{selected.customerName}</span></div>}
+                <div className="flex justify-between"><span className="text-muted-foreground">طريقة الدفع</span><span className="text-foreground">{selected.paymentMethod}</span></div>
               </div>
 
               <div className="mt-4 border-t border-border pt-3">
                 <table className="w-full text-xs font-body">
-                  <thead>
-                    <tr className="text-muted-foreground">
-                      <th className="text-right py-1 font-medium">المنتج</th>
-                      <th className="text-center py-1 font-medium">الكمية</th>
-                      <th className="text-center py-1 font-medium">السعر</th>
-                      <th className="text-left py-1 font-medium">الإجمالي</th>
-                    </tr>
-                  </thead>
+                  <thead><tr className="text-muted-foreground"><th className="text-right py-1 font-medium">المنتج</th><th className="text-center py-1 font-medium">الكمية</th><th className="text-center py-1 font-medium">السعر</th><th className="text-left py-1 font-medium">الإجمالي</th></tr></thead>
                   <tbody>
                     {selected.items.map(item => (
                       <tr key={item.id} className="border-t border-border">
@@ -206,30 +229,11 @@ const InvoicesPage: React.FC = () => {
               </div>
 
               <div className="mt-4 border-t border-border pt-3 space-y-2 text-sm font-body">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">المجموع</span>
-                  <span className="text-foreground">{selected.subtotal.toLocaleString()} ج.م</span>
-                </div>
-                {selected.discount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">الخصم</span>
-                    <span className="text-destructive">-{selected.discount.toLocaleString()} ج.م</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-heading font-semibold text-base">
-                  <span className="text-foreground">الإجمالي</span>
-                  <span className="text-primary">{selected.total.toLocaleString()} ج.م</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">المدفوع</span>
-                  <span className="text-foreground">{selected.paid.toLocaleString()} ج.م</span>
-                </div>
-                {selected.remaining > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-destructive">المتبقي</span>
-                    <span className="text-destructive">{selected.remaining.toLocaleString()} ج.م</span>
-                  </div>
-                )}
+                <div className="flex justify-between"><span className="text-muted-foreground">المجموع</span><span className="text-foreground">{selected.subtotal.toLocaleString()} {cur}</span></div>
+                {selected.discount > 0 && <div className="flex justify-between"><span className="text-muted-foreground">الخصم</span><span className="text-destructive">-{selected.discount.toLocaleString()} {cur}</span></div>}
+                <div className="flex justify-between font-heading font-semibold text-base"><span className="text-foreground">الإجمالي</span><span className="text-primary">{selected.total.toLocaleString()} {cur}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">المدفوع</span><span className="text-foreground">{selected.paid.toLocaleString()} {cur}</span></div>
+                {selected.remaining > 0 && <div className="flex justify-between"><span className="text-destructive">المتبقي</span><span className="text-destructive">{selected.remaining.toLocaleString()} {cur}</span></div>}
               </div>
 
               {selected.notes && (
