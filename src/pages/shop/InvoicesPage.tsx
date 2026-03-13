@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { useApp, Invoice } from '@/context/AppContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Printer, Trash2, Edit2, X, Check, Calendar } from 'lucide-react';
+import { Search, Printer, Trash2, Edit2, X, Check, Calendar, Clock } from 'lucide-react';
 
 const InvoicesPage: React.FC = () => {
   const { auth, invoices, updateInvoice, deleteInvoice, settings } = useApp();
@@ -17,14 +17,23 @@ const InvoicesPage: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<'all' | 'sale' | 'purchase'>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
+
+  // Get available dates (unique dates that have invoices)
+  const availableDates = useMemo(() => {
+    const dates = new Set<string>();
+    shopInvoices.forEach(i => {
+      dates.add(new Date(i.date).toISOString().split('T')[0]);
+    });
+    return [...dates].sort();
+  }, [shopInvoices]);
+
+  const minDate = availableDates.length > 0 ? availableDates[0] : '';
+  const maxDate = availableDates.length > 0 ? availableDates[availableDates.length - 1] : '';
 
   const filteredInvoices = useMemo(() => {
     let result = shopInvoices;
-    
-    if (typeFilter !== 'all') {
-      result = result.filter(i => i.type === typeFilter);
-    }
-    
+    if (typeFilter !== 'all') result = result.filter(i => i.type === typeFilter);
     if (dateFrom) {
       const from = new Date(dateFrom);
       from.setHours(0, 0, 0, 0);
@@ -35,23 +44,86 @@ const InvoicesPage: React.FC = () => {
       to.setHours(23, 59, 59, 999);
       result = result.filter(i => new Date(i.date) <= to);
     }
-    
     if (search) {
       const s = search.toLowerCase();
       result = result.filter(i =>
-        i.id.includes(s) || i.customerName?.toLowerCase().includes(s) || 
+        i.id.includes(s) || i.customerName?.toLowerCase().includes(s) ||
         i.items.some(item => item.productName.toLowerCase().includes(s))
       );
     }
-    
     return result;
   }, [shopInvoices, search, dateFrom, dateTo, typeFilter]);
 
   const periodTotal = useMemo(() => filteredInvoices.reduce((sum, i) => sum + i.total, 0), [filteredInvoices]);
+  const periodSales = useMemo(() => filteredInvoices.filter(i => i.type === 'sale').reduce((sum, i) => sum + i.total, 0), [filteredInvoices]);
+  const periodPurchases = useMemo(() => filteredInvoices.filter(i => i.type === 'purchase').reduce((sum, i) => sum + i.total, 0), [filteredInvoices]);
 
   const selected = shopInvoices.find(i => i.id === selectedInvoice);
 
-  const handlePrint = () => { window.print(); };
+  // Quick date filters
+  const setToday = () => {
+    const today = new Date().toISOString().split('T')[0];
+    setDateFrom(today);
+    setDateTo(today);
+  };
+  const setThisWeek = () => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(now.getDate() - now.getDay());
+    setDateFrom(start.toISOString().split('T')[0]);
+    setDateTo(now.toISOString().split('T')[0]);
+  };
+  const setThisMonth = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    setDateFrom(start.toISOString().split('T')[0]);
+    setDateTo(now.toISOString().split('T')[0]);
+  };
+
+  // Print only the invoice detail
+  const handlePrint = () => {
+    if (!printRef.current || !selected) return;
+    const printContent = printRef.current.innerHTML;
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>فاتورة #${selected.id.slice(-6)}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Cairo', 'IBM Plex Sans Arabic', Arial, sans-serif; padding: 20px; font-size: 13px; color: #111; direction: rtl; }
+          .print-header { text-align: center; margin-bottom: 16px; border-bottom: 2px solid #333; padding-bottom: 12px; }
+          .print-header h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+          .print-header .invoice-type { font-size: 14px; color: #555; }
+          .print-header .invoice-num { font-size: 12px; color: #777; margin-top: 4px; }
+          .info-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
+          .info-row .label { color: #666; }
+          .info-section { margin-bottom: 12px; }
+          table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+          th { background: #f5f5f5; padding: 6px 8px; text-align: right; font-size: 11px; border-bottom: 2px solid #ddd; }
+          td { padding: 5px 8px; border-bottom: 1px solid #eee; font-size: 12px; }
+          .text-center { text-align: center; }
+          .text-left { text-align: left; }
+          .totals { border-top: 2px solid #333; padding-top: 8px; margin-top: 8px; }
+          .total-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+          .total-row.grand { font-size: 16px; font-weight: 700; border-top: 1px solid #ddd; padding-top: 6px; margin-top: 4px; }
+          .total-row.remaining { color: #c00; }
+          .notes { margin-top: 12px; padding: 8px; background: #f9f9f9; border-radius: 4px; font-size: 11px; color: #555; }
+          .footer { text-align: center; margin-top: 20px; font-size: 10px; color: #999; border-top: 1px dashed #ccc; padding-top: 8px; }
+          @media print { body { padding: 10px; } }
+        </style>
+      </head>
+      <body>
+        ${printContent}
+        <script>window.onload = function() { window.print(); window.close(); }<\/script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   const handleDelete = (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذه الفاتورة؟ سيتم استعادة الكميات والأرصدة.')) {
@@ -61,12 +133,8 @@ const InvoicesPage: React.FC = () => {
   };
 
   const startEdit = (invoice: Invoice) => { setEditingInvoice({ ...invoice }); };
-
   const saveEdit = () => {
-    if (editingInvoice) {
-      updateInvoice(editingInvoice);
-      setEditingInvoice(null);
-    }
+    if (editingInvoice) { updateInvoice(editingInvoice); setEditingInvoice(null); }
   };
 
   const cur = settings.currency;
@@ -75,15 +143,12 @@ const InvoicesPage: React.FC = () => {
     <div className="h-full flex">
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-border space-y-3">
-          {/* Search */}
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
             <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث بالاسم أو المنتج..." className="pr-10 bg-card border-border h-10 font-body" />
           </div>
-          
-          {/* Filters row */}
+
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Type filter */}
             <div className="flex border border-border rounded-md overflow-hidden">
               {([['all', 'الكل'], ['sale', 'بيع'], ['purchase', 'شراء']] as const).map(([val, label]) => (
                 <button key={val} onClick={() => setTypeFilter(val as any)}
@@ -92,24 +157,37 @@ const InvoicesPage: React.FC = () => {
                 </button>
               ))}
             </div>
-            
-            {/* Date filters */}
+
+            {/* Quick date buttons */}
+            <div className="flex border border-border rounded-md overflow-hidden">
+              <button onClick={setToday} className="px-2.5 py-1.5 text-xs font-body text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">اليوم</button>
+              <button onClick={setThisWeek} className="px-2.5 py-1.5 text-xs font-body text-muted-foreground hover:text-foreground hover:bg-accent transition-colors border-r border-border">الأسبوع</button>
+              <button onClick={setThisMonth} className="px-2.5 py-1.5 text-xs font-body text-muted-foreground hover:text-foreground hover:bg-accent transition-colors border-r border-border">الشهر</button>
+            </div>
+
             <div className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
-              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="bg-card border-border h-8 font-body text-xs w-32" />
+              <Input type="date" value={dateFrom} min={minDate} max={maxDate} onChange={e => setDateFrom(e.target.value)} className="bg-card border-border h-8 font-body text-xs w-32" />
               <span className="text-xs text-muted-foreground">إلى</span>
-              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="bg-card border-border h-8 font-body text-xs w-32" />
+              <Input type="date" value={dateTo} min={minDate} max={maxDate} onChange={e => setDateTo(e.target.value)} className="bg-card border-border h-8 font-body text-xs w-32" />
             </div>
-            
+
             {(dateFrom || dateTo || typeFilter !== 'all') && (
               <button onClick={() => { setDateFrom(''); setDateTo(''); setTypeFilter('all'); }} className="text-xs text-destructive hover:underline font-body">مسح الفلاتر</button>
             )}
           </div>
-          
-          {/* Period summary */}
+
           <div className="flex items-center justify-between text-xs font-body text-muted-foreground">
             <span>{filteredInvoices.length} فاتورة</span>
-            <span>الإجمالي: <span className="text-primary font-medium">{periodTotal.toLocaleString()} {cur}</span></span>
+            <div className="flex items-center gap-3">
+              {typeFilter === 'all' && periodSales > 0 && periodPurchases > 0 && (
+                <>
+                  <span>بيع: <span className="text-primary">{periodSales.toLocaleString()}</span></span>
+                  <span>شراء: <span className="text-accent-foreground">{periodPurchases.toLocaleString()}</span></span>
+                </>
+              )}
+              <span>الإجمالي: <span className="text-primary font-medium">{periodTotal.toLocaleString()} {cur}</span></span>
+            </div>
           </div>
         </div>
 
@@ -119,11 +197,8 @@ const InvoicesPage: React.FC = () => {
           ) : (
             <div className="space-y-2 p-4">
               {filteredInvoices.map(invoice => (
-                <div
-                  key={invoice.id}
-                  onClick={() => { setSelectedInvoice(invoice.id); setEditingInvoice(null); }}
-                  className={`bg-card border rounded-lg p-4 cursor-pointer transition-colors ${selectedInvoice === invoice.id ? 'border-primary' : 'border-border hover:border-muted-foreground'}`}
-                >
+                <div key={invoice.id} onClick={() => { setSelectedInvoice(invoice.id); setEditingInvoice(null); }}
+                  className={`bg-card border rounded-lg p-4 cursor-pointer transition-colors ${selectedInvoice === invoice.id ? 'border-primary' : 'border-border hover:border-muted-foreground'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
@@ -131,9 +206,12 @@ const InvoicesPage: React.FC = () => {
                         <span className={`text-xs px-1.5 py-0.5 rounded font-body ${invoice.type === 'sale' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'}`}>
                           {invoice.type === 'sale' ? 'بيع' : 'شراء'}
                         </span>
+                        {invoice.remaining > 0 && <span className="text-xs px-1.5 py-0.5 rounded bg-destructive/10 text-destructive font-body">آجل</span>}
                       </div>
-                      <p className="text-xs text-muted-foreground font-body">
-                        {new Date(invoice.date).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} - {invoice.customerName || 'بدون عميل'}
+                      <p className="text-xs text-muted-foreground font-body flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3" strokeWidth={1.5} />
+                        {new Date(invoice.date).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {invoice.customerName && <> - {invoice.customerName}</>}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -155,8 +233,8 @@ const InvoicesPage: React.FC = () => {
 
       {/* Invoice detail */}
       {selected && (
-        <div className="w-80 lg:w-96 border-r border-border bg-card h-full overflow-auto p-6 animate-slide-in print:w-full print:border-0">
-          <div className="flex items-center justify-between mb-4 print:hidden">
+        <div className="w-80 lg:w-96 border-r border-border bg-card h-full overflow-auto p-6 animate-slide-in">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="font-heading font-semibold text-foreground">تفاصيل الفاتورة</h2>
             <div className="flex items-center gap-1">
               {editingInvoice ? (
@@ -171,11 +249,6 @@ const InvoicesPage: React.FC = () => {
                 </>
               )}
             </div>
-          </div>
-
-          <div className="hidden print:block text-center mb-4">
-            <h1 className="font-heading text-lg font-bold">{settings.appName}</h1>
-            <p className="text-sm">فاتورة {selected.type === 'sale' ? 'مبيعات' : 'مشتريات'}</p>
           </div>
 
           {editingInvoice ? (
@@ -203,7 +276,25 @@ const InvoicesPage: React.FC = () => {
               </div>
             </div>
           ) : (
-            <>
+            /* Printable invoice content */
+            <div ref={printRef}>
+              {/* Print header - shop name & customer */}
+              <div className="print-header" style={{ display: 'none' }}>
+                <h1>{auth.shopName || settings.appName}</h1>
+                <div className="invoice-type">فاتورة {selected.type === 'sale' ? 'مبيعات' : 'مشتريات'}</div>
+                <div className="invoice-num">#{selected.id.slice(-6)}</div>
+              </div>
+
+              {/* This hidden div contains the actual print content */}
+              <div style={{ display: 'none' }} className="print-content-data" 
+                data-shop={auth.shopName || settings.appName}
+                data-type={selected.type === 'sale' ? 'مبيعات' : 'مشتريات'}
+                data-id={selected.id.slice(-6)}
+                data-date={new Date(selected.date).toLocaleString('ar-EG')}
+                data-customer={selected.customerName || ''}
+                data-payment={selected.paymentMethod}
+              />
+
               <div className="space-y-3 text-sm font-body">
                 <div className="flex justify-between"><span className="text-muted-foreground">رقم الفاتورة</span><span className="text-foreground">#{selected.id.slice(-6)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">النوع</span><span className="text-foreground">{selected.type === 'sale' ? 'بيع' : 'شراء من عميل'}</span></div>
@@ -241,7 +332,7 @@ const InvoicesPage: React.FC = () => {
                   <p className="text-xs text-muted-foreground font-body">ملاحظات: {selected.notes}</p>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
       )}
