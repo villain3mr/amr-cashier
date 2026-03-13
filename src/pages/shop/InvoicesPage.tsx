@@ -305,24 +305,7 @@ const InvoicesPage: React.FC = () => {
               </div>
             </div>
           ) : (
-            /* Printable invoice content */
-            <div ref={printRef}>
-              {/* Print header - shop name & customer */}
-              <div className="print-header" style={{ display: 'none' }}>
-                <h1>{auth.shopName || settings.appName}</h1>
-                <div className="invoice-type">فاتورة {selected.type === 'sale' ? 'مبيعات' : 'مشتريات'}</div>
-                <div className="invoice-num">#{selected.id.slice(-6)}</div>
-              </div>
-
-              {/* This hidden div contains the actual print content */}
-              <div style={{ display: 'none' }} className="print-content-data" 
-                data-shop={auth.shopName || settings.appName}
-                data-type={selected.type === 'sale' ? 'مبيعات' : 'مشتريات'}
-                data-id={selected.id.slice(-6)}
-                data-date={new Date(selected.date).toLocaleString('ar-EG')}
-                data-customer={selected.customerName || ''}
-                data-payment={selected.paymentMethod}
-              />
+            <div>
 
               <div className="space-y-3 text-sm font-body">
                 <div className="flex justify-between"><span className="text-muted-foreground">رقم الفاتورة</span><span className="text-foreground">#{selected.id.slice(-6)}</span></div>
