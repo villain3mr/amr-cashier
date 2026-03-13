@@ -1,9 +1,10 @@
+import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import LoginPage from './pages/LoginPage';
 import ShopDashboard from './pages/ShopDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 
-const AppRouter = () => {
+const AppRouter: React.FC = () => {
   const { auth } = useApp();
 
   if (!auth.isLoggedIn) return <LoginPage />;
@@ -11,7 +12,7 @@ const AppRouter = () => {
   return <ShopDashboard />;
 };
 
-const App = () => (
+const App: React.FC = () => (
   <AppProvider>
     <AppRouter />
   </AppProvider>
