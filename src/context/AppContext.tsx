@@ -22,6 +22,7 @@ export interface Product {
   quantity: number;
   minStock: number;
   description: string;
+  imei?: string;
 }
 
 export interface Customer {

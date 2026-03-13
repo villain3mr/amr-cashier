@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp, Product } from '@/context/AppContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, Edit2, X, Check, Search, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, Search, AlertTriangle, Smartphone } from 'lucide-react';
 
 const CATEGORIES = ['هاتف', 'اكسسوارات', 'شاحن', 'سماعات', 'كفر', 'سكرينة', 'أخرى'];
 
@@ -13,18 +13,25 @@ const InventoryPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [form, setForm] = useState({
-    name: '', barcode: '', category: 'هاتف', buyPrice: 0, sellPrice: 0, quantity: 0, minStock: 5, description: ''
+    name: '', barcode: '', category: 'هاتف', buyPrice: 0, sellPrice: 0, quantity: 0, minStock: 5, description: '', imei: ''
   });
 
   const filteredProducts = useMemo(() => {
-    if (!search) return shopProducts;
-    const s = search.toLowerCase();
-    return shopProducts.filter(p => p.name.toLowerCase().includes(s) || p.barcode.includes(s) || p.category.includes(s));
-  }, [shopProducts, search]);
+    let result = shopProducts;
+    if (categoryFilter) {
+      result = result.filter(p => p.category === categoryFilter);
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      result = result.filter(p => p.name.toLowerCase().includes(s) || p.barcode.includes(s) || p.category.includes(s) || (p.imei && p.imei.toLowerCase().includes(s)));
+    }
+    return result;
+  }, [shopProducts, search, categoryFilter]);
 
   const resetForm = () => {
-    setForm({ name: '', barcode: '', category: 'هاتف', buyPrice: 0, sellPrice: 0, quantity: 0, minStock: 5, description: '' });
+    setForm({ name: '', barcode: '', category: 'هاتف', buyPrice: 0, sellPrice: 0, quantity: 0, minStock: 5, description: '', imei: '' });
     setEditingProduct(null);
     setShowForm(false);
   };
@@ -45,23 +52,41 @@ const InventoryPage: React.FC = () => {
     setForm({
       name: product.name, barcode: product.barcode, category: product.category,
       buyPrice: product.buyPrice, sellPrice: product.sellPrice, quantity: product.quantity,
-      minStock: product.minStock, description: product.description
+      minStock: product.minStock, description: product.description, imei: product.imei || ''
     });
     setShowForm(true);
   };
 
+  const isPhoneCategory = form.category === 'هاتف';
+
   return (
     <div className="h-full flex">
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-border flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في المخزون..." className="pr-10 bg-card border-border h-10 font-body" />
+        <div className="p-4 border-b border-border space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث بالاسم، الباركود أو IMEI..." className="pr-10 bg-card border-border h-10 font-body" />
+            </div>
+            <Button onClick={() => { resetForm(); setShowForm(true); }} size="sm">
+              <Plus className="w-4 h-4 ml-1" strokeWidth={1.5} />
+              إضافة منتج
+            </Button>
           </div>
-          <Button onClick={() => { resetForm(); setShowForm(true); }} size="sm">
-            <Plus className="w-4 h-4 ml-1" strokeWidth={1.5} />
-            إضافة منتج
-          </Button>
+          
+          {/* Category filter */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button onClick={() => setCategoryFilter('')}
+              className={`px-3 py-1 rounded-md text-xs font-body transition-colors ${!categoryFilter ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground border border-border hover:text-foreground'}`}>
+              الكل
+            </button>
+            {CATEGORIES.map(cat => (
+              <button key={cat} onClick={() => setCategoryFilter(cat)}
+                className={`px-3 py-1 rounded-md text-xs font-body transition-colors ${categoryFilter === cat ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground border border-border hover:text-foreground'}`}>
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex-1 overflow-auto">
@@ -84,7 +109,15 @@ const InventoryPage: React.FC = () => {
                   <tr key={product.id} className="border-t border-border hover:bg-accent/50 transition-colors">
                     <td className="p-3">
                       <p className="text-foreground font-medium">{product.name}</p>
-                      {product.barcode && <p className="text-xs text-muted-foreground">{product.barcode}</p>}
+                      <div className="flex items-center gap-2">
+                        {product.barcode && <p className="text-xs text-muted-foreground">{product.barcode}</p>}
+                        {product.imei && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-0.5">
+                            <Smartphone className="w-3 h-3" strokeWidth={1.5} />
+                            {product.imei}
+                          </p>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3 text-center text-muted-foreground">{product.category}</td>
                     <td className="p-3 text-center text-foreground">{product.buyPrice.toLocaleString()}</td>
@@ -135,6 +168,18 @@ const InventoryPage: React.FC = () => {
                 ))}
               </div>
             </div>
+            
+            {/* IMEI field - shown for phones */}
+            {isPhoneCategory && (
+              <div>
+                <label className="text-xs text-muted-foreground font-body mb-1 block flex items-center gap-1">
+                  <Smartphone className="w-3 h-3" strokeWidth={1.5} />
+                  IMEI
+                </label>
+                <Input value={form.imei} onChange={e => setForm(f => ({ ...f, imei: e.target.value }))} className="bg-background border-border h-10 font-body" placeholder="رقم IMEI للهاتف" />
+              </div>
+            )}
+            
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs text-muted-foreground font-body mb-1 block">سعر الشراء</label>
