@@ -58,6 +58,10 @@
     @apply border-border;
   }
 
+  html {
+    direction: rtl;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
@@ -67,6 +71,23 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
+  }
+
+  /* Auto-detect LTR content like English text, numbers, codes */
+  input, textarea {
+    unicode-bidi: plaintext;
+  }
+
+  /* Force LTR for specific content */
+  .ltr, [dir="ltr"] {
+    direction: ltr;
+    text-align: left;
+  }
+
+  /* IMEI, barcodes, dates, numbers should be LTR */
+  code, .font-mono, input[type="number"], input[type="date"], input[type="tel"] {
+    direction: ltr;
+    text-align: right;
   }
 
   /* Custom scrollbar */
