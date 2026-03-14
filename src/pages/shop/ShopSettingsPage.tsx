@@ -62,7 +62,7 @@ const ShopSettingsPage: React.FC = () => {
       <div className="bg-card border border-border rounded-lg p-4 mb-4">
         <h2 className="font-heading text-base font-semibold text-foreground mb-3">فئات المنتجات</h2>
         <div className="flex flex-wrap gap-2 mb-3">
-          {settings.categories.map(cat => (
+          {categories.map(cat => (
             <span key={cat} className="flex items-center gap-1 px-3 py-1.5 bg-background border border-border rounded-md text-sm font-body text-foreground">
               {cat}
               <button onClick={() => removeCategory(cat)} className="text-muted-foreground hover:text-destructive mr-1">
