@@ -80,6 +80,8 @@ const InvoicesPage: React.FC = () => {
     setDateTo(now.toISOString().split('T')[0]);
   };
 
+  const cur = settings.currency;
+
   const handlePrint = () => {
     if (!selected) return;
     const shopName = auth.shopName || settings.appName;
