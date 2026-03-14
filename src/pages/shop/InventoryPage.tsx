@@ -7,8 +7,9 @@ import { Plus, Trash2, Edit2, X, Check, Search, AlertTriangle, Smartphone } from
 // Categories now come from settings
 
 const InventoryPage: React.FC = () => {
-  const { auth, products, addProduct, updateProduct, deleteProduct } = useApp();
+  const { auth, products, addProduct, updateProduct, deleteProduct, settings } = useApp();
   const shopProducts = useMemo(() => products.filter(p => p.shopId === auth.shopId), [products, auth.shopId]);
+  const CATEGORIES = settings.categories;
 
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);

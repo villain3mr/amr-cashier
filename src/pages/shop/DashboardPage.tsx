@@ -17,10 +17,20 @@ const DashboardPage: React.FC = () => {
   const totalDebt = shopCustomers.reduce((sum, c) => sum + Math.max(0, c.balance), 0);
   const lowStockProducts = shopProducts.filter(p => p.quantity <= p.minStock);
 
-  // Net profit = sum of (sellPrice - buyPrice) * quantity for each sold item
-  const netProfit = useMemo(() => {
+  // Current month filter
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const monthlySales = useMemo(() => salesInvoices.filter(i => new Date(i.date) >= monthStart), [salesInvoices]);
+  const monthlyPurchases = useMemo(() => purchaseInvoices.filter(i => new Date(i.date) >= monthStart), [purchaseInvoices]);
+
+  const monthlySalesTotal = monthlySales.reduce((sum, i) => sum + i.total, 0);
+  const monthlyPurchasesTotal = monthlyPurchases.reduce((sum, i) => sum + i.total, 0);
+
+  // Monthly net profit
+  const monthlyProfit = useMemo(() => {
     let profit = 0;
-    salesInvoices.forEach(inv => {
+    monthlySales.forEach(inv => {
       inv.items.forEach(item => {
         const product = products.find(p => p.id === item.productId);
         const buyPrice = product?.buyPrice || 0;
@@ -29,10 +39,10 @@ const DashboardPage: React.FC = () => {
       profit -= inv.discount || 0;
     });
     return profit;
-  }, [salesInvoices, products]);
+  }, [monthlySales, products]);
 
   // Today's stats
-  const today = new Date().toDateString();
+  const today = now.toDateString();
   const todaySales = salesInvoices.filter(i => new Date(i.date).toDateString() === today);
   const todayTotal = todaySales.reduce((sum, i) => sum + i.total, 0);
   const todayCount = todaySales.length;
@@ -51,24 +61,26 @@ const DashboardPage: React.FC = () => {
   }, [todaySales, products]);
 
   const cur = settings.currency;
+  const monthName = now.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
 
   return (
     <div className="h-full overflow-auto p-6">
-      <h1 className="font-heading text-xl font-bold text-foreground mb-6">لوحة التحكم</h1>
+      <h1 className="font-heading text-xl font-bold text-foreground mb-1">لوحة التحكم</h1>
+      <p className="text-xs text-muted-foreground font-body mb-6">{monthName}</p>
 
-      {/* Main stats */}
+      {/* Monthly stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        <StatCard icon={TrendingUp} label="إجمالي المبيعات" value={`${totalSales.toLocaleString()} ${cur}`} color="text-primary" />
-        <StatCard icon={TrendingDown} label="إجمالي المشتريات" value={`${totalPurchases.toLocaleString()} ${cur}`} color="text-accent-foreground" />
-        <StatCard icon={DollarSign} label={netProfit >= 0 ? 'صافي الربح' : 'صافي الخسارة'} value={`${Math.abs(netProfit).toLocaleString()} ${cur}`} color={netProfit >= 0 ? 'text-primary' : 'text-destructive'} />
+        <StatCard icon={TrendingUp} label={`مبيعات الشهر`} value={`${monthlySalesTotal.toLocaleString()} ${cur}`} color="text-primary" />
+        <StatCard icon={TrendingDown} label={`مشتريات الشهر`} value={`${monthlyPurchasesTotal.toLocaleString()} ${cur}`} color="text-accent-foreground" />
+        <StatCard icon={DollarSign} label={monthlyProfit >= 0 ? 'صافي ربح الشهر' : 'صافي خسارة الشهر'} value={`${Math.abs(monthlyProfit).toLocaleString()} ${cur}`} color={monthlyProfit >= 0 ? 'text-primary' : 'text-destructive'} />
         <StatCard icon={ShoppingCart} label="مبيعات اليوم" value={`${todayTotal.toLocaleString()} ${cur}`} subtitle={`${todayCount} فاتورة • ربح ${todayProfit.toLocaleString()} ${cur}`} color="text-primary" />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <StatCard icon={TrendingUp} label="إجمالي المبيعات (كلي)" value={`${totalSales.toLocaleString()} ${cur}`} color="text-primary" />
         <StatCard icon={Package} label="المنتجات" value={shopProducts.length.toString()} color="text-primary" />
         <StatCard icon={Users} label="العملاء" value={shopCustomers.length.toString()} color="text-primary" />
         <StatCard icon={FileText} label="الديون المستحقة" value={`${totalDebt.toLocaleString()} ${cur}`} color="text-destructive" />
-        <StatCard icon={AlertTriangle} label="منتجات تحت الحد" value={lowStockProducts.length.toString()} color={lowStockProducts.length > 0 ? 'text-destructive' : 'text-primary'} />
       </div>
 
       {/* Low stock alert */}
