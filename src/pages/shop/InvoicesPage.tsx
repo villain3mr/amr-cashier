@@ -80,6 +80,8 @@ const InvoicesPage: React.FC = () => {
     setDateTo(now.toISOString().split('T')[0]);
   };
 
+  const cur = settings.currency;
+
   const handlePrint = () => {
     if (!selected) return;
     const shopName = auth.shopName || settings.appName;
@@ -165,8 +167,6 @@ const InvoicesPage: React.FC = () => {
   const saveEdit = () => {
     if (editingInvoice) { updateInvoice(editingInvoice); setEditingInvoice(null); }
   };
-
-  const cur = settings.currency;
 
   return (
     <div className="h-full flex">

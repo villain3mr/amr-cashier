@@ -73,6 +73,7 @@ export interface Transaction {
 
 export interface AppSettings {
   paymentMethods: { id: string; label: string; active: boolean }[];
+  categories: string[];
   currency: string;
   appName: string;
 }
@@ -122,6 +123,7 @@ const defaultSettings: AppSettings = {
     { id: 'cash', label: 'كاش', active: true },
     { id: 'instapay', label: 'انستاباي', active: true },
   ],
+  categories: ['هاتف', 'اكسسوارات', 'شاحن', 'سماعات', 'كفر', 'سكرينة', 'أخرى'],
   currency: 'ج.م',
   appName: 'Amr Cashier',
 };
