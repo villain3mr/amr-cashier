@@ -94,10 +94,7 @@ const InvoicesPage: React.FC = () => {
       </tr>
     `).join('');
 
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    if (!printWindow) return;
-    printWindow.document.write(`
-      <!DOCTYPE html>
+    const html = `<!DOCTYPE html>
       <html dir="rtl" lang="ar">
       <head>
         <meta charset="UTF-8">
@@ -123,6 +120,7 @@ const InvoicesPage: React.FC = () => {
           .t-row.red { color: #c00; }
           .notes { margin-top: 12px; padding: 8px; background: #f9f9f9; border-radius: 4px; font-size: 11px; color: #555; }
           .footer { text-align: center; margin-top: 24px; font-size: 10px; color: #aaa; border-top: 1px dashed #ccc; padding-top: 8px; }
+          @media print { body { padding: 10px; } }
         </style>
       </head>
       <body>
@@ -149,11 +147,30 @@ const InvoicesPage: React.FC = () => {
         </div>
         ${selected.notes ? `<div class="notes">ملاحظات: ${selected.notes}</div>` : ''}
         <div class="footer">شكراً لتعاملكم معنا - ${shopName}</div>
-        <script>window.onload = function() { window.print(); window.close(); }<\/script>
       </body>
-      </html>
-    `);
-    printWindow.document.close();
+      </html>`;
+
+    // Use hidden iframe to avoid popup blockers
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '-9999px';
+    iframe.style.top = '-9999px';
+    iframe.style.width = '400px';
+    iframe.style.height = '600px';
+    document.body.appendChild(iframe);
+    
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    
+    iframe.onload = () => {
+      setTimeout(() => {
+        iframe.contentWindow?.print();
+        setTimeout(() => document.body.removeChild(iframe), 1000);
+      }, 250);
+    };
   };
 
   const handleDelete = (id: string) => {
