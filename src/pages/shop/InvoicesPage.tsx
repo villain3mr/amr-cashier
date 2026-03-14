@@ -168,8 +168,6 @@ const InvoicesPage: React.FC = () => {
     if (editingInvoice) { updateInvoice(editingInvoice); setEditingInvoice(null); }
   };
 
-  const cur = settings.currency;
-
   return (
     <div className="h-full flex">
       <div className="flex-1 flex flex-col overflow-hidden">
