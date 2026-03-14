@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, X, Check } from 'lucide-react';
 
+const DEFAULT_CATEGORIES = ['هاتف', 'اكسسوارات', 'شاحن', 'سماعات', 'كفر', 'سكرينة', 'أخرى'];
+
 const ShopSettingsPage: React.FC = () => {
   const { auth, settings, updateSettings } = useApp();
   const [newCategory, setNewCategory] = useState('');

@@ -9,7 +9,7 @@ import { Plus, Trash2, Edit2, X, Check, Search, AlertTriangle, Smartphone } from
 const InventoryPage: React.FC = () => {
   const { auth, products, addProduct, updateProduct, deleteProduct, settings } = useApp();
   const shopProducts = useMemo(() => products.filter(p => p.shopId === auth.shopId), [products, auth.shopId]);
-  const CATEGORIES = settings.categories;
+  const CATEGORIES = settings.categories || ['هاتف', 'اكسسوارات', 'شاحن', 'سماعات', 'كفر', 'سكرينة', 'أخرى'];
 
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
