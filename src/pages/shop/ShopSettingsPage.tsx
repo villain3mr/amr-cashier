@@ -14,8 +14,8 @@ const ShopSettingsPage: React.FC = () => {
 
   const addCategory = () => {
     const cat = newCategory.trim();
-    if (!cat || settings.categories.includes(cat)) return;
-    updateSettings({ ...settings, categories: [...settings.categories, cat] });
+    if (!cat || categories.includes(cat)) return;
+    updateSettings({ ...settings, categories: [...categories, cat] });
     setNewCategory('');
   };
 
