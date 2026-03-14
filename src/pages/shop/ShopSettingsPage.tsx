@@ -20,7 +20,7 @@ const ShopSettingsPage: React.FC = () => {
   };
 
   const removeCategory = (cat: string) => {
-    updateSettings({ ...settings, categories: settings.categories.filter(c => c !== cat) });
+    updateSettings({ ...settings, categories: categories.filter(c => c !== cat) });
   };
 
   const addPaymentMethod = () => {
