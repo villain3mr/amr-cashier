@@ -73,6 +73,7 @@ export interface Transaction {
 
 export interface AppSettings {
   paymentMethods: { id: string; label: string; active: boolean }[];
+  categories: string[];
   currency: string;
   appName: string;
 }
