@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, Edit2, X, Check, Search, AlertTriangle, Smartphone } from 'lucide-react';
 
-const CATEGORIES = ['هاتف', 'اكسسوارات', 'شاحن', 'سماعات', 'كفر', 'سكرينة', 'أخرى'];
+// Categories now come from settings
 
 const InventoryPage: React.FC = () => {
   const { auth, products, addProduct, updateProduct, deleteProduct } = useApp();
