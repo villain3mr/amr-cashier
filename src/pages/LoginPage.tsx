@@ -13,15 +13,18 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setTimeout(() => {
-      const success = login(username.trim(), password, remember);
+    try {
+      const success = await login(username.trim(), password, remember);
       if (!success) setError('اسم المستخدم أو كلمة المرور غير صحيحة');
+    } catch {
+      setError('حدث خطأ في الاتصال');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -43,45 +46,17 @@ const LoginPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
             <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
-            <Input
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              placeholder="اسم المستخدم"
-              className="pr-10 bg-card border-border text-foreground placeholder:text-muted-foreground h-11 font-body"
-              autoComplete="username"
-              required
-            />
+            <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="اسم المستخدم" className="pr-10 bg-card border-border text-foreground placeholder:text-muted-foreground h-11 font-body" autoComplete="username" required />
           </div>
-
           <div className="relative">
             <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
-            <Input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="كلمة المرور"
-              className="pr-10 bg-card border-border text-foreground placeholder:text-muted-foreground h-11 font-body"
-              autoComplete="current-password"
-              required
-            />
+            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="كلمة المرور" className="pr-10 bg-card border-border text-foreground placeholder:text-muted-foreground h-11 font-body" autoComplete="current-password" required />
           </div>
-
           <div className="flex items-center gap-2">
-            <Checkbox
-              id="remember"
-              checked={remember}
-              onCheckedChange={(v) => setRemember(v === true)}
-              className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-            />
-            <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer font-body">
-              تذكرني
-            </label>
+            <Checkbox id="remember" checked={remember} onCheckedChange={(v) => setRemember(v === true)} className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
+            <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer font-body">تذكرني</label>
           </div>
-
-          {error && (
-            <p className="text-destructive text-sm font-body">{error}</p>
-          )}
-
+          {error && <p className="text-destructive text-sm font-body">{error}</p>}
           <Button type="submit" className="w-full h-11 font-heading font-semibold" disabled={loading}>
             تسجيل الدخول
           </Button>

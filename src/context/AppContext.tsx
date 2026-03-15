@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Shop {
   id: string;
@@ -72,6 +73,7 @@ export interface Transaction {
 }
 
 export interface AppSettings {
+  id?: string;
   paymentMethods: { id: string; label: string; active: boolean }[];
   categories: string[];
   currency: string;
@@ -89,28 +91,30 @@ interface AuthState {
 
 interface AppContextType {
   auth: AuthState;
-  login: (username: string, password: string, remember: boolean) => boolean;
+  login: (username: string, password: string, remember: boolean) => Promise<boolean>;
   logout: () => void;
   shops: Shop[];
-  addShop: (shop: Omit<Shop, 'id' | 'createdAt'>) => void;
-  updateShop: (shop: Shop) => void;
-  deleteShop: (id: string) => void;
+  addShop: (shop: Omit<Shop, 'id' | 'createdAt'>) => Promise<void>;
+  updateShop: (shop: Shop) => Promise<void>;
+  deleteShop: (id: string) => Promise<void>;
   products: Product[];
-  addProduct: (product: Omit<Product, 'id'>) => void;
-  updateProduct: (product: Product) => void;
-  deleteProduct: (id: string) => void;
+  addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
+  updateProduct: (product: Product) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
   customers: Customer[];
-  addCustomer: (customer: Omit<Customer, 'id'>) => void;
-  updateCustomer: (customer: Customer) => void;
-  deleteCustomer: (id: string) => void;
+  addCustomer: (customer: Omit<Customer, 'id'>) => Promise<void>;
+  updateCustomer: (customer: Customer) => Promise<void>;
+  deleteCustomer: (id: string) => Promise<void>;
   invoices: Invoice[];
-  addInvoice: (invoice: Omit<Invoice, 'id' | 'date'>) => void;
-  updateInvoice: (invoice: Invoice) => void;
-  deleteInvoice: (id: string) => void;
+  addInvoice: (invoice: Omit<Invoice, 'id' | 'date'>) => Promise<void>;
+  updateInvoice: (invoice: Invoice) => Promise<void>;
+  deleteInvoice: (id: string) => Promise<void>;
   transactions: Transaction[];
-  addTransaction: (tx: Omit<Transaction, 'id' | 'date'>) => void;
+  addTransaction: (tx: Omit<Transaction, 'id' | 'date'>) => Promise<void>;
   settings: AppSettings;
-  updateSettings: (settings: AppSettings) => void;
+  updateSettings: (settings: AppSettings) => Promise<void>;
+  loading: boolean;
+  refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -128,61 +132,98 @@ const defaultSettings: AppSettings = {
   appName: 'Amr Cashier',
 };
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+// DB row mappers
+function mapShop(r: any): Shop {
+  return { id: r.id, name: r.name, username: r.username, password: r.password || '', phone: r.phone || '', address: r.address || '', active: r.active ?? true, createdAt: r.created_at || '' };
+}
+function mapProduct(r: any): Product {
+  return { id: r.id, shopId: r.shop_id, name: r.name, barcode: r.barcode || '', category: r.category || '', buyPrice: Number(r.buy_price) || 0, sellPrice: Number(r.sell_price) || 0, quantity: Number(r.quantity) || 0, minStock: Number(r.min_stock) || 5, description: r.description || '', imei: r.imei || '' };
+}
+function mapCustomer(r: any): Customer {
+  return { id: r.id, shopId: r.shop_id, name: r.name, phone: r.phone || '', address: r.address || '', balance: Number(r.balance) || 0, notes: r.notes || '' };
+}
+function mapInvoice(r: any, items: InvoiceItem[]): Invoice {
+  return { id: r.id, shopId: r.shop_id, customerId: r.customer_id || undefined, customerName: r.customer_name || undefined, type: r.type as 'sale' | 'purchase', items, subtotal: Number(r.subtotal) || 0, discount: Number(r.discount) || 0, total: Number(r.total) || 0, paid: Number(r.paid) || 0, remaining: Number(r.remaining) || 0, paymentMethod: r.payment_method || '', date: r.date || '', notes: r.notes || '' };
+}
+function mapTransaction(r: any): Transaction {
+  return { id: r.id, shopId: r.shop_id, customerId: r.customer_id, type: r.type as 'payment' | 'purchase', amount: Number(r.amount) || 0, date: r.date || '', notes: r.notes || '' };
+}
+function mapSettings(r: any): AppSettings {
+  return { id: r.id, paymentMethods: (r.payment_methods as any[]) || defaultSettings.paymentMethods, categories: (r.categories as string[]) || defaultSettings.categories, currency: r.currency || defaultSettings.currency, appName: r.app_name || defaultSettings.appName };
 }
 
-function loadFromStorage<T>(key: string, fallback: T): T {
+function loadAuth(): AuthState {
   try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveToStorage(key: string, data: unknown) {
-  localStorage.setItem(key, JSON.stringify(data));
+    const saved = localStorage.getItem('amr_auth') || sessionStorage.getItem('amr_auth');
+    return saved ? JSON.parse(saved) : { isLoggedIn: false, role: null, shopId: null, shopName: null };
+  } catch { return { isLoggedIn: false, role: null, shopId: null, shopName: null }; }
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [auth, setAuth] = useState<AuthState>(() => {
-    const saved = loadFromStorage<AuthState | null>('amr_auth', null);
-    return saved || { isLoggedIn: false, role: null, shopId: null, shopName: null };
-  });
+  const [auth, setAuth] = useState<AuthState>(loadAuth);
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [loading, setLoading] = useState(true);
 
-  const [shops, setShops] = useState<Shop[]>(() => loadFromStorage('amr_shops', []));
-  const [products, setProducts] = useState<Product[]>(() => loadFromStorage('amr_products', []));
-  const [customers, setCustomers] = useState<Customer[]>(() => loadFromStorage('amr_customers', []));
-  const [invoices, setInvoices] = useState<Invoice[]>(() => loadFromStorage('amr_invoices', []));
-  const [transactions, setTransactions] = useState<Transaction[]>(() => loadFromStorage('amr_transactions', []));
-  const [settings, setSettings] = useState<AppSettings>(() => loadFromStorage('amr_settings', defaultSettings));
+  const fetchAllData = useCallback(async () => {
+    try {
+      const [shopsRes, productsRes, customersRes, invoicesRes, itemsRes, transactionsRes, settingsRes] = await Promise.all([
+        supabase.from('shops').select('*'),
+        supabase.from('products').select('*'),
+        supabase.from('customers').select('*'),
+        supabase.from('invoices').select('*').order('date', { ascending: false }),
+        supabase.from('invoice_items').select('*'),
+        supabase.from('transactions').select('*'),
+        supabase.from('app_settings').select('*').limit(1),
+      ]);
 
-  useEffect(() => { saveToStorage('amr_shops', shops); }, [shops]);
-  useEffect(() => { saveToStorage('amr_products', products); }, [products]);
-  useEffect(() => { saveToStorage('amr_customers', customers); }, [customers]);
-  useEffect(() => { saveToStorage('amr_invoices', invoices); }, [invoices]);
-  useEffect(() => { saveToStorage('amr_transactions', transactions); }, [transactions]);
-  useEffect(() => { saveToStorage('amr_settings', settings); }, [settings]);
+      if (shopsRes.data) setShops(shopsRes.data.map(mapShop));
+      if (productsRes.data) setProducts(productsRes.data.map(mapProduct));
+      if (customersRes.data) setCustomers(customersRes.data.map(mapCustomer));
+      if (transactionsRes.data) setTransactions(transactionsRes.data.map(mapTransaction));
+      if (settingsRes.data && settingsRes.data.length > 0) setSettings(mapSettings(settingsRes.data[0]));
 
-  const login = useCallback((username: string, password: string, remember: boolean) => {
+      // Map invoice items to invoices
+      if (invoicesRes.data && itemsRes.data) {
+        const itemsByInvoice: Record<string, InvoiceItem[]> = {};
+        itemsRes.data.forEach((item: any) => {
+          if (!itemsByInvoice[item.invoice_id]) itemsByInvoice[item.invoice_id] = [];
+          itemsByInvoice[item.invoice_id].push({ id: item.id, productId: item.product_id || '', productName: item.product_name, quantity: item.quantity, unitPrice: Number(item.unit_price), total: Number(item.total) });
+        });
+        setInvoices(invoicesRes.data.map((inv: any) => mapInvoice(inv, itemsByInvoice[inv.id] || [])));
+      }
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchAllData(); }, [fetchAllData]);
+
+  const login = useCallback(async (username: string, password: string, remember: boolean): Promise<boolean> => {
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
       const state: AuthState = { isLoggedIn: true, role: 'admin', shopId: null, shopName: null };
       setAuth(state);
-      if (remember) saveToStorage('amr_auth', state);
+      if (remember) localStorage.setItem('amr_auth', JSON.stringify(state));
       else sessionStorage.setItem('amr_auth', JSON.stringify(state));
       return true;
     }
-    const shop = shops.find(s => s.username === username && s.password === password && s.active);
-    if (shop) {
-      const state: AuthState = { isLoggedIn: true, role: 'shop', shopId: shop.id, shopName: shop.name };
+    const { data } = await supabase.rpc('verify_shop_login', { p_username: username, p_password: password });
+    if (data && data.length > 0) {
+      const shop = data[0];
+      const state: AuthState = { isLoggedIn: true, role: 'shop', shopId: shop.shop_id, shopName: shop.shop_name };
       setAuth(state);
-      if (remember) saveToStorage('amr_auth', state);
+      if (remember) localStorage.setItem('amr_auth', JSON.stringify(state));
       else sessionStorage.setItem('amr_auth', JSON.stringify(state));
       return true;
     }
     return false;
-  }, [shops]);
+  }, []);
 
   const logout = useCallback(() => {
     setAuth({ isLoggedIn: false, role: null, shopId: null, shopName: null });
@@ -190,96 +231,141 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     sessionStorage.removeItem('amr_auth');
   }, []);
 
-  const addShop = useCallback((shop: Omit<Shop, 'id' | 'createdAt'>) => {
-    setShops(prev => [...prev, { ...shop, id: generateId(), createdAt: new Date().toISOString() }]);
+  // SHOPS
+  const addShop = useCallback(async (shop: Omit<Shop, 'id' | 'createdAt'>) => {
+    const { data, error } = await supabase.from('shops').insert({ name: shop.name, username: shop.username, password: shop.password, phone: shop.phone, address: shop.address, active: shop.active }).select().single();
+    if (data && !error) setShops(prev => [...prev, mapShop(data)]);
   }, []);
-  const updateShop = useCallback((shop: Shop) => {
-    setShops(prev => prev.map(s => s.id === shop.id ? shop : s));
+  const updateShop = useCallback(async (shop: Shop) => {
+    const { error } = await supabase.from('shops').update({ name: shop.name, username: shop.username, password: shop.password, phone: shop.phone, address: shop.address, active: shop.active }).eq('id', shop.id);
+    if (!error) setShops(prev => prev.map(s => s.id === shop.id ? shop : s));
   }, []);
-  const deleteShop = useCallback((id: string) => {
-    setShops(prev => prev.filter(s => s.id !== id));
-  }, []);
-
-  const addProduct = useCallback((product: Omit<Product, 'id'>) => {
-    setProducts(prev => [...prev, { ...product, id: generateId() }]);
-  }, []);
-  const updateProduct = useCallback((product: Product) => {
-    setProducts(prev => prev.map(p => p.id === product.id ? product : p));
-  }, []);
-  const deleteProduct = useCallback((id: string) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
+  const deleteShop = useCallback(async (id: string) => {
+    const { error } = await supabase.from('shops').delete().eq('id', id);
+    if (!error) setShops(prev => prev.filter(s => s.id !== id));
   }, []);
 
-  const addCustomer = useCallback((customer: Omit<Customer, 'id'>) => {
-    setCustomers(prev => [...prev, { ...customer, id: generateId() }]);
+  // PRODUCTS
+  const addProduct = useCallback(async (product: Omit<Product, 'id'>) => {
+    const { data, error } = await supabase.from('products').insert({ shop_id: product.shopId, name: product.name, barcode: product.barcode, category: product.category, buy_price: product.buyPrice, sell_price: product.sellPrice, quantity: product.quantity, min_stock: product.minStock, description: product.description, imei: product.imei || '' }).select().single();
+    if (data && !error) setProducts(prev => [...prev, mapProduct(data)]);
   }, []);
-  const updateCustomer = useCallback((customer: Customer) => {
-    setCustomers(prev => prev.map(c => c.id === customer.id ? customer : c));
+  const updateProduct = useCallback(async (product: Product) => {
+    const { error } = await supabase.from('products').update({ name: product.name, barcode: product.barcode, category: product.category, buy_price: product.buyPrice, sell_price: product.sellPrice, quantity: product.quantity, min_stock: product.minStock, description: product.description, imei: product.imei || '' }).eq('id', product.id);
+    if (!error) setProducts(prev => prev.map(p => p.id === product.id ? product : p));
   }, []);
-  const deleteCustomer = useCallback((id: string) => {
-    setCustomers(prev => prev.filter(c => c.id !== id));
+  const deleteProduct = useCallback(async (id: string) => {
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (!error) setProducts(prev => prev.filter(p => p.id !== id));
   }, []);
 
-  const addInvoice = useCallback((invoice: Omit<Invoice, 'id' | 'date'>) => {
-    const newInvoice = { ...invoice, id: generateId(), date: new Date().toISOString() };
-    setInvoices(prev => [...prev, newInvoice]);
+  // CUSTOMERS
+  const addCustomer = useCallback(async (customer: Omit<Customer, 'id'>) => {
+    const { data, error } = await supabase.from('customers').insert({ shop_id: customer.shopId, name: customer.name, phone: customer.phone, address: customer.address, balance: customer.balance, notes: customer.notes }).select().single();
+    if (data && !error) setCustomers(prev => [...prev, mapCustomer(data)]);
+  }, []);
+  const updateCustomer = useCallback(async (customer: Customer) => {
+    const { error } = await supabase.from('customers').update({ name: customer.name, phone: customer.phone, address: customer.address, balance: customer.balance, notes: customer.notes }).eq('id', customer.id);
+    if (!error) setCustomers(prev => prev.map(c => c.id === customer.id ? customer : c));
+  }, []);
+  const deleteCustomer = useCallback(async (id: string) => {
+    const { error } = await supabase.from('customers').delete().eq('id', id);
+    if (!error) setCustomers(prev => prev.filter(c => c.id !== id));
+  }, []);
+
+  // INVOICES
+  const addInvoice = useCallback(async (invoice: Omit<Invoice, 'id' | 'date'>) => {
+    const { data: invData, error: invError } = await supabase.from('invoices').insert({
+      shop_id: invoice.shopId, customer_id: invoice.customerId || null, customer_name: invoice.customerName || '', type: invoice.type, subtotal: invoice.subtotal, discount: invoice.discount, total: invoice.total, paid: invoice.paid, remaining: invoice.remaining, payment_method: invoice.paymentMethod, notes: invoice.notes,
+    }).select().single();
+
+    if (!invData || invError) return;
+
+    // Insert items
+    const itemsToInsert = invoice.items.map(item => ({ invoice_id: invData.id, product_id: item.productId, product_name: item.productName, quantity: item.quantity, unit_price: item.unitPrice, total: item.total }));
+    const { data: itemsData } = await supabase.from('invoice_items').insert(itemsToInsert).select();
+    const mappedItems: InvoiceItem[] = (itemsData || []).map((it: any) => ({ id: it.id, productId: it.product_id || '', productName: it.product_name, quantity: it.quantity, unitPrice: Number(it.unit_price), total: Number(it.total) }));
+
+    setInvoices(prev => [mapInvoice(invData, mappedItems), ...prev]);
+
+    // Update product quantities
     const isSale = invoice.type === 'sale';
-    invoice.items.forEach(item => {
-      setProducts(prev => prev.map(p =>
-        p.id === item.productId
-          ? { ...p, quantity: isSale ? p.quantity - item.quantity : p.quantity + item.quantity }
-          : p
-      ));
-    });
-    if (invoice.customerId && invoice.remaining > 0) {
-      setCustomers(prev => prev.map(c =>
-        c.id === invoice.customerId
-          ? { ...c, balance: isSale ? c.balance + invoice.remaining : c.balance - invoice.remaining }
-          : c
-      ));
+    for (const item of invoice.items) {
+      const product = products.find(p => p.id === item.productId);
+      if (product) {
+        const newQty = isSale ? product.quantity - item.quantity : product.quantity + item.quantity;
+        await supabase.from('products').update({ quantity: newQty }).eq('id', item.productId);
+        setProducts(prev => prev.map(p => p.id === item.productId ? { ...p, quantity: newQty } : p));
+      }
     }
+
+    // Update customer balance
+    if (invoice.customerId && invoice.remaining > 0) {
+      const customer = customers.find(c => c.id === invoice.customerId);
+      if (customer) {
+        const newBalance = isSale ? customer.balance + invoice.remaining : customer.balance - invoice.remaining;
+        await supabase.from('customers').update({ balance: newBalance }).eq('id', invoice.customerId);
+        setCustomers(prev => prev.map(c => c.id === invoice.customerId ? { ...c, balance: newBalance } : c));
+      }
+    }
+  }, [products, customers]);
+
+  const updateInvoice = useCallback(async (invoice: Invoice) => {
+    const { error } = await supabase.from('invoices').update({ customer_id: invoice.customerId || null, customer_name: invoice.customerName || '', subtotal: invoice.subtotal, discount: invoice.discount, total: invoice.total, paid: invoice.paid, remaining: invoice.remaining, payment_method: invoice.paymentMethod, notes: invoice.notes }).eq('id', invoice.id);
+    if (!error) setInvoices(prev => prev.map(i => i.id === invoice.id ? invoice : i));
   }, []);
 
-  const updateInvoice = useCallback((invoice: Invoice) => {
-    setInvoices(prev => prev.map(i => i.id === invoice.id ? invoice : i));
-  }, []);
-
-  const deleteInvoice = useCallback((id: string) => {
+  const deleteInvoice = useCallback(async (id: string) => {
     const invoice = invoices.find(i => i.id === id);
     if (invoice) {
       const isSale = invoice.type === 'sale';
-      // Restore product quantities
-      invoice.items.forEach(item => {
-        setProducts(prev => prev.map(p =>
-          p.id === item.productId
-            ? { ...p, quantity: isSale ? p.quantity + item.quantity : p.quantity - item.quantity }
-            : p
-        ));
-      });
-      // Restore customer balance
+      for (const item of invoice.items) {
+        const product = products.find(p => p.id === item.productId);
+        if (product) {
+          const newQty = isSale ? product.quantity + item.quantity : product.quantity - item.quantity;
+          await supabase.from('products').update({ quantity: newQty }).eq('id', item.productId);
+          setProducts(prev => prev.map(p => p.id === item.productId ? { ...p, quantity: newQty } : p));
+        }
+      }
       if (invoice.customerId && invoice.remaining > 0) {
-        setCustomers(prev => prev.map(c =>
-          c.id === invoice.customerId
-            ? { ...c, balance: isSale ? c.balance - invoice.remaining : c.balance + invoice.remaining }
-            : c
-        ));
+        const customer = customers.find(c => c.id === invoice.customerId);
+        if (customer) {
+          const newBalance = isSale ? customer.balance - invoice.remaining : customer.balance + invoice.remaining;
+          await supabase.from('customers').update({ balance: newBalance }).eq('id', invoice.customerId);
+          setCustomers(prev => prev.map(c => c.id === invoice.customerId ? { ...c, balance: newBalance } : c));
+        }
       }
     }
-    setInvoices(prev => prev.filter(i => i.id !== id));
-  }, [invoices]);
+    await supabase.from('invoice_items').delete().eq('invoice_id', id);
+    const { error } = await supabase.from('invoices').delete().eq('id', id);
+    if (!error) setInvoices(prev => prev.filter(i => i.id !== id));
+  }, [invoices, products, customers]);
 
-  const addTransaction = useCallback((tx: Omit<Transaction, 'id' | 'date'>) => {
-    setTransactions(prev => [...prev, { ...tx, id: generateId(), date: new Date().toISOString() }]);
+  // TRANSACTIONS
+  const addTransaction = useCallback(async (tx: Omit<Transaction, 'id' | 'date'>) => {
+    const { data, error } = await supabase.from('transactions').insert({ shop_id: tx.shopId, customer_id: tx.customerId, type: tx.type, amount: tx.amount, notes: tx.notes }).select().single();
+    if (data && !error) setTransactions(prev => [...prev, mapTransaction(data)]);
     if (tx.type === 'payment') {
-      setCustomers(prev => prev.map(c =>
-        c.id === tx.customerId ? { ...c, balance: c.balance - tx.amount } : c
-      ));
+      const customer = customers.find(c => c.id === tx.customerId);
+      if (customer) {
+        const newBalance = customer.balance - tx.amount;
+        await supabase.from('customers').update({ balance: newBalance }).eq('id', tx.customerId);
+        setCustomers(prev => prev.map(c => c.id === tx.customerId ? { ...c, balance: newBalance } : c));
+      }
     }
-  }, []);
+  }, [customers]);
 
-  const updateSettings = useCallback((newSettings: AppSettings) => {
+  // SETTINGS
+  const updateSettings = useCallback(async (newSettings: AppSettings) => {
+    const updateData = { payment_methods: newSettings.paymentMethods as any, categories: newSettings.categories as any, currency: newSettings.currency, app_name: newSettings.appName };
+    if (settings.id) {
+      await supabase.from('app_settings').update(updateData).eq('id', settings.id);
+    } else {
+      const { data } = await supabase.from('app_settings').insert(updateData).select().single();
+      if (data) newSettings.id = data.id;
+    }
     setSettings(newSettings);
-  }, []);
+  }, [settings.id]);
 
   return (
     <AppContext.Provider value={{
@@ -290,6 +376,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       invoices, addInvoice, updateInvoice, deleteInvoice,
       transactions, addTransaction,
       settings, updateSettings,
+      loading, refreshData: fetchAllData,
     }}>
       {children}
     </AppContext.Provider>
