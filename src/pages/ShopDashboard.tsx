@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import Sidebar from '@/components/layout/Sidebar';
 import DashboardPage from '@/pages/shop/DashboardPage';
@@ -7,6 +7,8 @@ import InventoryPage from '@/pages/shop/InventoryPage';
 import CustomersPage from '@/pages/shop/CustomersPage';
 import InvoicesPage from '@/pages/shop/InvoicesPage';
 import ShopSettingsPage from '@/pages/shop/ShopSettingsPage';
+import LockScreen from '@/components/LockScreen';
+import { supabase } from '@/integrations/supabase/client';
 
 export type ShopTab = 'dashboard' | 'sales' | 'inventory' | 'customers' | 'invoices' | 'settings';
 
@@ -14,7 +16,34 @@ const ShopDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ShopTab>('dashboard');
   const { auth } = useApp();
 
+  // Lock state per session
+  const [dashboardUnlocked, setDashboardUnlocked] = useState(false);
+  const [inventoryUnlocked, setInventoryUnlocked] = useState(false);
+  const [dashboardHasLock, setDashboardHasLock] = useState(false);
+  const [inventoryHasLock, setInventoryHasLock] = useState(false);
+
+  useEffect(() => {
+    if (!auth.shopId) return;
+    const checkLocks = async () => {
+      const [dRes, iRes] = await Promise.all([
+        supabase.rpc('has_lock', { p_shop_id: auth.shopId!, p_lock_type: 'dashboard' }),
+        supabase.rpc('has_lock', { p_shop_id: auth.shopId!, p_lock_type: 'inventory' }),
+      ]);
+      setDashboardHasLock(!!dRes.data);
+      setInventoryHasLock(!!iRes.data);
+    };
+    checkLocks();
+  }, [auth.shopId]);
+
   const renderContent = () => {
+    // Check locks
+    if (activeTab === 'dashboard' && dashboardHasLock && !dashboardUnlocked) {
+      return <LockScreen shopId={auth.shopId!} lockType="dashboard" title="لوحة التحكم مقفلة" onUnlock={() => setDashboardUnlocked(true)} />;
+    }
+    if (activeTab === 'inventory' && inventoryHasLock && !inventoryUnlocked) {
+      return <LockScreen shopId={auth.shopId!} lockType="inventory" title="المخزون مقفل" onUnlock={() => setInventoryUnlocked(true)} />;
+    }
+
     switch (activeTab) {
       case 'dashboard': return <DashboardPage />;
       case 'sales': return <SalesPage />;
