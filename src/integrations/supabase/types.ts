@@ -14,13 +14,429 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          app_name: string | null
+          categories: Json | null
+          currency: string | null
+          id: string
+          payment_methods: Json | null
+        }
+        Insert: {
+          app_name?: string | null
+          categories?: Json | null
+          currency?: string | null
+          id?: string
+          payment_methods?: Json | null
+        }
+        Update: {
+          app_name?: string | null
+          categories?: Json | null
+          currency?: string | null
+          id?: string
+          payment_methods?: Json | null
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          address: string | null
+          balance: number | null
+          created_at: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          shop_id: string
+        }
+        Insert: {
+          address?: string | null
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          shop_id: string
+        }
+        Update: {
+          address?: string | null
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_items: {
+        Row: {
+          id: string
+          invoice_id: string
+          product_id: string | null
+          product_name: string
+          quantity: number
+          total: number
+          unit_price: number
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          product_id?: string | null
+          product_name: string
+          quantity?: number
+          total?: number
+          unit_price?: number
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          total?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          customer_id: string | null
+          customer_name: string | null
+          date: string | null
+          discount: number | null
+          id: string
+          notes: string | null
+          paid: number | null
+          payment_method: string | null
+          remaining: number | null
+          shop_id: string
+          subtotal: number | null
+          total: number | null
+          type: string
+        }
+        Insert: {
+          customer_id?: string | null
+          customer_name?: string | null
+          date?: string | null
+          discount?: number | null
+          id?: string
+          notes?: string | null
+          paid?: number | null
+          payment_method?: string | null
+          remaining?: number | null
+          shop_id: string
+          subtotal?: number | null
+          total?: number | null
+          type: string
+        }
+        Update: {
+          customer_id?: string | null
+          customer_name?: string | null
+          date?: string | null
+          discount?: number | null
+          id?: string
+          notes?: string | null
+          paid?: number | null
+          payment_method?: string | null
+          remaining?: number | null
+          shop_id?: string
+          subtotal?: number | null
+          total?: number | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          barcode: string | null
+          buy_price: number | null
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          imei: string | null
+          min_stock: number | null
+          name: string
+          quantity: number | null
+          sell_price: number | null
+          shop_id: string
+        }
+        Insert: {
+          barcode?: string | null
+          buy_price?: number | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          imei?: string | null
+          min_stock?: number | null
+          name: string
+          quantity?: number | null
+          sell_price?: number | null
+          shop_id: string
+        }
+        Update: {
+          barcode?: string | null
+          buy_price?: number | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          imei?: string | null
+          min_stock?: number | null
+          name?: string
+          quantity?: number | null
+          sell_price?: number | null
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_locks: {
+        Row: {
+          id: string
+          lock_type: string
+          password: string
+          shop_id: string
+        }
+        Insert: {
+          id?: string
+          lock_type: string
+          password: string
+          shop_id: string
+        }
+        Update: {
+          id?: string
+          lock_type?: string
+          password?: string
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_locks_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_locks_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shops: {
+        Row: {
+          active: boolean | null
+          address: string | null
+          created_at: string | null
+          id: string
+          name: string
+          password: string
+          phone: string | null
+          username: string
+        }
+        Insert: {
+          active?: boolean | null
+          address?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          password: string
+          phone?: string | null
+          username: string
+        }
+        Update: {
+          active?: boolean | null
+          address?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          password?: string
+          phone?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          customer_id: string
+          date: string | null
+          id: string
+          notes: string | null
+          shop_id: string
+          type: string
+        }
+        Insert: {
+          amount?: number
+          customer_id: string
+          date?: string | null
+          id?: string
+          notes?: string | null
+          shop_id: string
+          type: string
+        }
+        Update: {
+          amount?: number
+          customer_id?: string
+          date?: string | null
+          id?: string
+          notes?: string | null
+          shop_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      shops_public: {
+        Row: {
+          active: boolean | null
+          address: string | null
+          created_at: string | null
+          id: string | null
+          name: string | null
+          phone: string | null
+          username: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          address?: string | null
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          phone?: string | null
+          username?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          address?: string | null
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          phone?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      change_lock_password: {
+        Args: {
+          p_current_password: string
+          p_lock_type: string
+          p_new_password: string
+          p_shop_id: string
+        }
+        Returns: boolean
+      }
+      has_lock: {
+        Args: { p_lock_type: string; p_shop_id: string }
+        Returns: boolean
+      }
+      verify_lock_password: {
+        Args: { p_lock_type: string; p_password: string; p_shop_id: string }
+        Returns: boolean
+      }
+      verify_shop_login: {
+        Args: { p_password: string; p_username: string }
+        Returns: {
+          shop_active: boolean
+          shop_address: string
+          shop_id: string
+          shop_name: string
+          shop_phone: string
+          shop_username: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
