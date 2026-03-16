@@ -69,8 +69,9 @@ export function printBarcodeLabels(products: { barcode: string; name: string; ca
     page-break-inside: avoid;
   }
   .shop { font-size: 7px; color: #333; margin-bottom: 1px; font-weight: bold; }
-  .name { font-size: 8px; font-weight: bold; margin-bottom: 1px; max-width: 45mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .cat { font-size: 7px; color: #666; margin-bottom: 2px; }
+  .name { font-size: 8px; font-weight: bold; margin-bottom: 0.5px; max-width: 45mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cat { font-size: 6px; color: #666; margin-bottom: 0.5px; }
+  .desc { font-size: 6px; color: #888; margin-bottom: 1px; max-width: 45mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   @media print { 
     body { margin: 0; }
     .label { margin: 0; }

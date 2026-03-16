@@ -171,7 +171,7 @@ const InventoryPage: React.FC = () => {
                         <button onClick={() => { setShowBarcodePreview(false); startEdit(product); }} className="p-1.5 text-muted-foreground hover:text-foreground"><Edit2 className="w-4 h-4" strokeWidth={1.5} /></button>
                         <button onClick={() => { if (confirm('حذف المنتج؟')) deleteProduct(product.id); }} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" strokeWidth={1.5} /></button>
                         {product.barcode && (
-                          <button onClick={() => printBarcodeLabels([{ barcode: product.barcode, name: product.name, category: product.category }], auth.shopName || '')} className="p-1.5 text-muted-foreground hover:text-primary" title="طباعة باركود">
+                          <button onClick={() => printBarcodeLabels([{ barcode: product.barcode, name: product.name, category: product.category, description: product.description }], auth.shopName || '')} className="p-1.5 text-muted-foreground hover:text-primary" title="طباعة باركود">
                             <Barcode className="w-4 h-4" strokeWidth={1.5} />
                           </button>
                         )}
