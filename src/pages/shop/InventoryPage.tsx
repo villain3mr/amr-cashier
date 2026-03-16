@@ -74,7 +74,7 @@ const InventoryPage: React.FC = () => {
   const printSelectedBarcodes = () => {
     const selected = shopProducts.filter(p => selectedForBarcode.has(p.id) && p.barcode);
     if (selected.length === 0) return;
-    printBarcodeLabels(selected.map(p => ({ barcode: p.barcode, name: p.name, category: p.category })));
+    printBarcodeLabels(selected.map(p => ({ barcode: p.barcode, name: p.name, category: p.category })), auth.shopName || '');
   };
 
   const isPhoneCategory = form.category === 'هاتف';
