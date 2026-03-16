@@ -16,7 +16,7 @@ const ShopDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ShopTab>('dashboard');
   const { auth } = useApp();
 
-  // Lock state per session
+  // Lock state per session - re-lock when leaving the tab
   const [dashboardUnlocked, setDashboardUnlocked] = useState(false);
   const [inventoryUnlocked, setInventoryUnlocked] = useState(false);
   const [dashboardHasLock, setDashboardHasLock] = useState(false);
@@ -35,8 +35,17 @@ const ShopDashboard: React.FC = () => {
     checkLocks();
   }, [auth.shopId]);
 
+  // Re-lock sections when navigating away from them
+  useEffect(() => {
+    if (activeTab !== 'dashboard' && dashboardHasLock) {
+      setDashboardUnlocked(false);
+    }
+    if (activeTab !== 'inventory' && inventoryHasLock) {
+      setInventoryUnlocked(false);
+    }
+  }, [activeTab, dashboardHasLock, inventoryHasLock]);
+
   const renderContent = () => {
-    // Check locks
     if (activeTab === 'dashboard' && dashboardHasLock && !dashboardUnlocked) {
       return <LockScreen shopId={auth.shopId!} lockType="dashboard" title="لوحة التحكم مقفلة" onUnlock={() => setDashboardUnlocked(true)} />;
     }
