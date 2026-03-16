@@ -74,7 +74,7 @@ const InventoryPage: React.FC = () => {
   const printSelectedBarcodes = () => {
     const selected = shopProducts.filter(p => selectedForBarcode.has(p.id) && p.barcode);
     if (selected.length === 0) return;
-    printBarcodeLabels(selected.map(p => ({ barcode: p.barcode, name: p.name, category: p.category })));
+    printBarcodeLabels(selected.map(p => ({ barcode: p.barcode, name: p.name, category: p.category })), auth.shopName || '');
   };
 
   const isPhoneCategory = form.category === 'هاتف';
@@ -171,7 +171,7 @@ const InventoryPage: React.FC = () => {
                         <button onClick={() => { setShowBarcodePreview(false); startEdit(product); }} className="p-1.5 text-muted-foreground hover:text-foreground"><Edit2 className="w-4 h-4" strokeWidth={1.5} /></button>
                         <button onClick={() => { if (confirm('حذف المنتج؟')) deleteProduct(product.id); }} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" strokeWidth={1.5} /></button>
                         {product.barcode && (
-                          <button onClick={() => printBarcodeLabels([{ barcode: product.barcode, name: product.name, category: product.category }])} className="p-1.5 text-muted-foreground hover:text-primary" title="طباعة باركود">
+                          <button onClick={() => printBarcodeLabels([{ barcode: product.barcode, name: product.name, category: product.category }], auth.shopName || '')} className="p-1.5 text-muted-foreground hover:text-primary" title="طباعة باركود">
                             <Barcode className="w-4 h-4" strokeWidth={1.5} />
                           </button>
                         )}

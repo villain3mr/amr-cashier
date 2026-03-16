@@ -84,13 +84,13 @@ const InvoicesPage: React.FC = () => {
 
   const handlePrint = () => {
     if (!selected) return;
-    const shopName = auth.shopName || settings.appName;
+    const shopName = auth.shopName || '';
     const itemsHtml = selected.items.map(item => `
       <tr>
         <td>${item.productName}</td>
-        <td class="text-center">${item.quantity}</td>
-        <td class="text-center">${item.unitPrice.toLocaleString()}</td>
-        <td class="text-left">${item.total.toLocaleString()}</td>
+        <td class="c">${item.quantity}</td>
+        <td class="c">${item.unitPrice.toLocaleString()}</td>
+        <td class="l">${item.total.toLocaleString()}</td>
       </tr>
     `).join('');
 
@@ -98,55 +98,55 @@ const InvoicesPage: React.FC = () => {
       <html dir="rtl" lang="ar">
       <head>
         <meta charset="UTF-8">
-        <title>فاتورة #${selected.id.slice(-6)}</title>
+        <title>فاتورة</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Cairo', 'IBM Plex Sans Arabic', Arial, sans-serif; padding: 24px; font-size: 13px; color: #111; direction: rtl; max-width: 400px; margin: 0 auto; }
-          .header { text-align: center; margin-bottom: 16px; border-bottom: 2px solid #333; padding-bottom: 12px; }
-          .header h1 { font-size: 20px; font-weight: 700; }
-          .header .sub { font-size: 13px; color: #555; margin-top: 2px; }
-          .header .num { font-size: 11px; color: #888; margin-top: 4px; }
-          .info { margin-bottom: 12px; }
-          .info-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; }
-          .info-row .lbl { color: #666; }
-          table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-          th { background: #f5f5f5; padding: 6px 8px; text-align: right; font-size: 11px; border-bottom: 2px solid #ddd; }
-          td { padding: 5px 8px; border-bottom: 1px solid #eee; font-size: 12px; }
-          .text-center { text-align: center; }
-          .text-left { text-align: left; }
-          .totals { border-top: 2px solid #333; padding-top: 8px; margin-top: 4px; }
-          .t-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
-          .t-row.grand { font-size: 16px; font-weight: 700; border-top: 1px solid #ccc; padding-top: 6px; margin-top: 4px; }
+          body { font-family: Arial, sans-serif; width: 80mm; padding: 6mm 4mm; font-size: 11px; color: #000; direction: rtl; margin: 0 auto; }
+          .header { text-align: center; margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 6px; }
+          .header h1 { font-size: 16px; font-weight: 700; }
+          .header .sub { font-size: 10px; color: #333; margin-top: 2px; }
+          .header .num { font-size: 9px; color: #555; margin-top: 2px; }
+          .info { margin-bottom: 6px; }
+          .info-row { display: flex; justify-content: space-between; padding: 1px 0; font-size: 10px; }
+          .info-row .lbl { color: #555; }
+          table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+          th { padding: 3px 2px; text-align: right; font-size: 9px; border-bottom: 1px solid #000; }
+          td { padding: 3px 2px; border-bottom: 1px dotted #ccc; font-size: 10px; }
+          .c { text-align: center; }
+          .l { text-align: left; }
+          .totals { border-top: 1px dashed #000; padding-top: 4px; margin-top: 2px; }
+          .t-row { display: flex; justify-content: space-between; padding: 1px 0; font-size: 10px; }
+          .t-row.grand { font-size: 13px; font-weight: 700; border-top: 1px solid #000; padding-top: 4px; margin-top: 3px; }
           .t-row.red { color: #c00; }
-          .notes { margin-top: 12px; padding: 8px; background: #f9f9f9; border-radius: 4px; font-size: 11px; color: #555; }
-          .footer { text-align: center; margin-top: 24px; font-size: 10px; color: #aaa; border-top: 1px dashed #ccc; padding-top: 8px; }
-          @media print { body { padding: 10px; } }
+          .notes { margin-top: 6px; font-size: 9px; color: #555; }
+          .footer { text-align: center; margin-top: 10px; font-size: 9px; color: #888; border-top: 1px dashed #ccc; padding-top: 4px; }
+          @media print { body { padding: 2mm; } @page { margin: 0; size: 80mm auto; } }
         </style>
       </head>
       <body>
         <div class="header">
           <h1>${shopName}</h1>
-          <div class="sub">فاتورة ${selected.type === 'sale' ? 'مبيعات' : 'مشتريات'}</div>
+          <div class="sub">فاتورة ${selected.type === 'sale' ? 'بيع' : 'شراء'}</div>
           <div class="num">#${selected.id.slice(-6)}</div>
         </div>
         <div class="info">
           <div class="info-row"><span class="lbl">التاريخ</span><span>${new Date(selected.date).toLocaleString('ar-EG')}</span></div>
-          ${selected.customerName ? `<div class="info-row"><span class="lbl">${selected.type === 'sale' ? 'المباع إليه' : 'المشترى منه'}</span><span><strong>${selected.customerName}</strong></span></div>` : ''}
-          <div class="info-row"><span class="lbl">طريقة الدفع</span><span>${selected.paymentMethod}</span></div>
+          ${selected.customerName ? `<div class="info-row"><span class="lbl">العميل</span><span>${selected.customerName}</span></div>` : ''}
+          <div class="info-row"><span class="lbl">الدفع</span><span>${selected.paymentMethod}</span></div>
         </div>
         <table>
-          <thead><tr><th>المنتج</th><th class="text-center">الكمية</th><th class="text-center">السعر</th><th class="text-left">الإجمالي</th></tr></thead>
+          <thead><tr><th>المنتج</th><th class="c">كمية</th><th class="c">سعر</th><th class="l">إجمالي</th></tr></thead>
           <tbody>${itemsHtml}</tbody>
         </table>
         <div class="totals">
           <div class="t-row"><span>المجموع</span><span>${selected.subtotal.toLocaleString()} ${cur}</span></div>
-          ${selected.discount > 0 ? `<div class="t-row"><span>الخصم</span><span>-${selected.discount.toLocaleString()} ${cur}</span></div>` : ''}
+          ${selected.discount > 0 ? `<div class="t-row"><span>خصم</span><span>-${selected.discount.toLocaleString()} ${cur}</span></div>` : ''}
           <div class="t-row grand"><span>الإجمالي</span><span>${selected.total.toLocaleString()} ${cur}</span></div>
           <div class="t-row"><span>المدفوع</span><span>${selected.paid.toLocaleString()} ${cur}</span></div>
           ${selected.remaining > 0 ? `<div class="t-row red"><span>المتبقي</span><span>${selected.remaining.toLocaleString()} ${cur}</span></div>` : ''}
         </div>
         ${selected.notes ? `<div class="notes">ملاحظات: ${selected.notes}</div>` : ''}
-        <div class="footer">شكراً لتعاملكم معنا - ${shopName}</div>
+        <div class="footer">شكراً لتعاملكم - ${shopName}</div>
       </body>
       </html>`;
 

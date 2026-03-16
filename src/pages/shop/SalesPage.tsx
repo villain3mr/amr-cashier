@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useApp, InvoiceItem } from '@/context/AppContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,55 @@ const SalesPage: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [animatingId, setAnimatingId] = useState<string | null>(null);
 
+  const searchRef = useRef<HTMLInputElement>(null);
+  const lastKeyTime = useRef(0);
+  const barcodeBuffer = useRef('');
+
+  // Barcode scanner detection: rapid keystrokes ending with Enter
+  const handleBarcodeInput = useCallback((barcode: string) => {
+    const product = shopProducts.find(p => p.barcode === barcode);
+    if (product) {
+      addItem(product.id);
+      setSearch('');
+    } else {
+      setSearch(barcode);
+    }
+  }, [shopProducts]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in other inputs (not the search)
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' && target !== searchRef.current) return;
+      if (target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return;
+
+      const now = Date.now();
+      
+      if (e.key === 'Enter' && barcodeBuffer.current.length >= 4) {
+        e.preventDefault();
+        handleBarcodeInput(barcodeBuffer.current);
+        barcodeBuffer.current = '';
+        return;
+      }
+
+      // If keystroke is rapid (< 50ms apart), it's likely a scanner
+      if (now - lastKeyTime.current < 50) {
+        if (e.key.length === 1) {
+          barcodeBuffer.current += e.key;
+        }
+      } else {
+        // Reset buffer for manual typing
+        if (e.key.length === 1) {
+          barcodeBuffer.current = e.key;
+        }
+      }
+      lastKeyTime.current = now;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleBarcodeInput]);
+
   const filteredProducts = useMemo(() => {
     if (!search) return shopProducts;
     const s = search.toLowerCase();
@@ -31,7 +80,6 @@ const SalesPage: React.FC = () => {
   const addItem = (productId: string) => {
     const product = shopProducts.find(p => p.id === productId);
     if (!product) return;
-    // For sales, check quantity. For purchases, no limit.
     if (invoiceType === 'sale' && product.quantity <= 0) return;
 
     const existing = items.find(i => i.productId === productId);
@@ -110,7 +158,6 @@ const SalesPage: React.FC = () => {
       {/* Middle: Product selection */}
       <div className="flex-1 flex flex-col overflow-hidden border-l border-border">
         <div className="p-4 border-b border-border space-y-2">
-          {/* Sale/Purchase toggle */}
           <div className="flex border border-border rounded-md overflow-hidden">
             <button
               onClick={() => { setInvoiceType('sale'); setItems([]); }}
@@ -133,9 +180,20 @@ const SalesPage: React.FC = () => {
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
             <Input
+              ref={searchRef}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="بحث بالاسم أو الباركود..."
+              onKeyDown={e => {
+                if (e.key === 'Enter' && search.trim()) {
+                  // Manual Enter: find product by barcode match
+                  const match = shopProducts.find(p => p.barcode === search.trim());
+                  if (match) {
+                    addItem(match.id);
+                    setSearch('');
+                  }
+                }
+              }}
+              placeholder="بحث بالاسم أو مسح الباركود..."
               className="pr-10 bg-card border-border h-10 font-body"
             />
           </div>
