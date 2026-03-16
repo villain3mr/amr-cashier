@@ -43,12 +43,13 @@ const BarcodeLabel: React.FC<BarcodeLabelProps> = ({ value, productName, categor
 
 export default BarcodeLabel;
 
-export function printBarcodeLabels(products: { barcode: string; name: string; category: string }[], shopName?: string) {
+export function printBarcodeLabels(products: { barcode: string; name: string; category: string; description?: string }[], shopName?: string) {
   const labelsHtml = products.map(p => `
     <div class="label">
       ${shopName ? `<p class="shop">${shopName}</p>` : ''}
       <p class="name">${p.name}</p>
       <p class="cat">${p.category}</p>
+      ${p.description ? `<p class="desc">${p.description}</p>` : ''}
       <svg id="bc-${p.barcode}"></svg>
     </div>
   `).join('');
